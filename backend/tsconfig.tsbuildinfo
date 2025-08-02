@@ -1,0 +1,1 @@
+{"root":["./src/index.ts","./src/config/db.ts","./src/middlewares/auth.ts","./src/middlewares/validate.ts","./src/model/content.ts","./src/model/link.ts","./src/model/tag.ts","./src/model/user.ts","./src/routes/auth.ts","./src/routes/contents.ts","./src/routes/share.ts","./src/utils/zodschema.ts"],"version":"5.7.3"}
