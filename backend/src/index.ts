@@ -6,10 +6,17 @@ import dotenv from "dotenv"
 import contentRouter from './routes/contents'
 import shareRouter from './routes/share'
 import cookieParser from 'cookie-parser';
-
+import cors from 'cors'
 dotenv.config()
 
 const app=express()
+
+const frontendURL = "http://localhost:5173"; 
+
+app.use(cors({
+  origin:frontendURL,
+  credentials:true
+}))
 app.use(express.json())
 app.use(cookieParser());
 
