@@ -13,7 +13,7 @@ export interface ButtonProps {
 }
 
 const variantStyles = {
-  primary: "bg-blue-400 hover:bg-blue-600 text-white",
+  primary: "bg-blue-400 hover:bg-blue-500 text-white",
   secondary: "bg-blue-100 hover:bg-blue-200 text-blue-900", 
   danger: "bg-red-600 hover:bg-red-700 text-white",
   ghost: "bg-gray-200 hover:bg-gray-300 text-gray-800",
