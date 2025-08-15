@@ -5,6 +5,7 @@ import bcrypt from 'bcrypt';
 import jwt from "jsonwebtoken";
 import { validate } from '../middlewares/validate';
 import { signupSchema, signinSchema } from '../utils/zodSchema';
+import { authMiddleware, AuthRequest } from '../middlewares/auth';
 
 const authRouter = express.Router();
 
@@ -84,5 +85,18 @@ authRouter.post('/logout', async (req, res) => {
     });
     res.status(200).json({ message: "Logged Out Successfully" });
 });
+
+authRouter.get('/profile', authMiddleware,async(req:AuthRequest,res)=>{
+      try {
+    const userId = req.userId;
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+    res.send(user);
+  } catch (err:any) {
+    res.status(500).send("ERROR: " + err.message);
+  }
+})
 
 export default authRouter;

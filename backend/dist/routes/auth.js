@@ -18,6 +18,7 @@ const bcrypt_1 = __importDefault(require("bcrypt"));
 const jsonwebtoken_1 = __importDefault(require("jsonwebtoken"));
 const validate_1 = require("../middlewares/validate");
 const zodSchema_1 = require("../utils/zodSchema");
+const auth_1 = require("../middlewares/auth");
 const authRouter = express_1.default.Router();
 authRouter.post("/signup", (0, validate_1.validate)(zodSchema_1.signupSchema), (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     try {
@@ -81,5 +82,18 @@ authRouter.post('/logout', (req, res) => __awaiter(void 0, void 0, void 0, funct
         expires: new Date(0) // Expire the cookie immediately
     });
     res.status(200).json({ message: "Logged Out Successfully" });
+}));
+authRouter.get('/profile', auth_1.authMiddleware, (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+    try {
+        const userId = req.userId;
+        const user = yield user_1.default.findById(userId);
+        if (!user) {
+            return res.status(404).json({ message: "User not found" });
+        }
+        res.send(user);
+    }
+    catch (err) {
+        res.status(500).send("ERROR: " + err.message);
+    }
 }));
 exports.default = authRouter;

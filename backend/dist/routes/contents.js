@@ -17,35 +17,34 @@ const auth_1 = require("../middlewares/auth");
 const validate_1 = require("../middlewares/validate");
 const zodSchema_1 = require("../utils/zodSchema");
 const content_1 = __importDefault(require("../model/content"));
-// import Tag from '../model/tag';
+const tag_1 = __importDefault(require("../model/tag"));
 const contentRouter = (0, express_1.Router)();
 contentRouter.use(auth_1.authMiddleware);
 contentRouter.post("/content", (0, validate_1.validate)(zodSchema_1.createContentSchema), (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     try {
-        const { title, type, link, tags } = req.body;
+        const { title, type, link, tags, description, thumbnail } = req.body;
         const userId = req.userId;
-        //   const userTags = await Tag.find({ _id: { $in: tags }, userId });
-        //   if (userTags.length !== tags.length) {
-        //     return res
-        //       .status(400)
-        //       .json({
-        //         message: "One or more tags are invalid or do not belong to you.",
-        //       });
-        //   }
+        const tagIds = yield Promise.all((tags || []).map((tagName) => __awaiter(void 0, void 0, void 0, function* () {
+            const name = tagName.toLowerCase().trim();
+            let tag = yield tag_1.default.findOne({ name, userId });
+            if (!tag) {
+                tag = new tag_1.default({ name, userId });
+                yield tag.save();
+            }
+            return tag._id;
+        })));
         const newContent = new content_1.default({
-            title,
-            type,
-            link,
-            tags: tags || [],
+            title, type, link, description, thumbnail,
+            tags: tagIds,
             userId,
         });
         const savedContent = yield newContent.save();
-        res.status(201).json({ message: "content added successfully" });
+        const populatedContent = yield content_1.default.findById(savedContent._id)
+            .populate("userId", "username")
+            .populate("tags", "name");
+        res.status(201).json(populatedContent);
     }
     catch (error) {
-        if (error.code === 11000) {
-            return res.status(409).json({ message: "Duplicate title." });
-        }
         console.error("Error creating content:", error);
         res.status(500).json({ message: "Server error while creating content." });
     }
@@ -55,6 +54,7 @@ contentRouter.get("/content", (req, res) => __awaiter(void 0, void 0, void 0, fu
         const userId = req.userId;
         const contents = yield content_1.default.find({ userId })
             .populate("userId", "username")
+            .populate("tags", "name")
             .sort({ createdAt: -1 });
         res.status(200).json(contents);
     }

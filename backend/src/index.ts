@@ -7,6 +7,7 @@ import contentRouter from './routes/contents'
 import shareRouter from './routes/share'
 import cookieParser from 'cookie-parser';
 import cors from 'cors'
+import tagRouter from './routes/tags'
 dotenv.config()
 
 const app=express()
@@ -23,6 +24,7 @@ app.use(cookieParser());
 
 app.use('/', authRouter);
 app.use('/',contentRouter)
+app.use('/', tagRouter);
 app.use('/', shareRouter)
 
 

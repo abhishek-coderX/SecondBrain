@@ -34,11 +34,11 @@ var __importStar = (this && this.__importStar) || (function () {
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
 const mongoose_1 = __importStar(require("mongoose"));
-const contentTypes = ['image', 'video', 'article', 'audio'];
+const contentTypes = ["youtube", "twitter", "article"];
 const contentSchema = new mongoose_1.default.Schema({
     link: {
         type: String,
-        required: true
+        required: true,
     },
     type: {
         type: String,
@@ -48,17 +48,15 @@ const contentSchema = new mongoose_1.default.Schema({
     title: {
         type: String,
         required: true,
-        unique: true
+        unique: true,
     },
-    tags: [{ type: mongoose_1.Types.ObjectId,
-            ref: 'Tag'
-        }],
+    tags: [{ type: mongoose_1.Types.ObjectId, ref: "Tag" }],
     userId: {
         type: mongoose_1.Types.ObjectId,
-        ref: 'User',
-        required: true
-    }
+        ref: "User",
+        required: true,
+    },
 }, {
-    timestamps: true
+    timestamps: true,
 });
 exports.default = mongoose_1.default.model("Content", contentSchema);

@@ -1,56 +1,61 @@
-import { Cards } from "./components/Cards";
-import { PlusIcon } from "./components/icons/PlusIcon";
-import { ShareIcon } from "./components/icons/ShareIcon";
-import { Button } from "./components/ui/Button";
+
+import { Routes, Route, Navigate } from 'react-router-dom';
+import { useDispatch, useSelector } from 'react-redux';
+import { LandingPage } from './pages/LandingPage';
+import LoginSignup from './pages/Login';
+import Layout from './pages/Layout';
+import type { RootState } from './store/store';
+import { useEffect, useState } from 'react';
+import { setUser } from './store/authSlice';
+import axios from 'axios';
+
+
 
 const App = () => {
+  const { user } = useSelector((state: RootState) => state.auth);
+  const dispatch=useDispatch()
+  const [isAuthChecking, setIsAuthChecking] = useState(true); 
+
+  useEffect(()=>{
+     const checkAuthStatus=async()=>
+     {
+           try {
+            const res=await axios.get("http://localhost:4000/profile",{withCredentials:true})
+            dispatch(setUser(res.data))
+           } catch (error) {
+            console.log(error);
+           }
+           finally {
+        setIsAuthChecking(false);
+      }
+     }
+     checkAuthStatus();
+
+  },[dispatch])
+
+ if (isAuthChecking) {
+    return (
+      <div className="min-h-screen flex justify-center items-center bg-gray-50">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+      </div>
+    );
+  }
+
   return (
-    <div>
-      <Button
-        size="md"
-        variant="primary"
-        text="add content"
-        startIcon={<PlusIcon size="sm" />}
-      />
-      <Button
-        size="md"
-        variant="secondary"
-        text=" content"
-        startIcon={<ShareIcon size="sm" />}
-      />
-      <Cards
-        title="ho to be bellionaire"
-        tags={["rich", "mindset"]}
-        link="https://www.youtube.com/watch?v=O8WIdjRk10o"
-        type="youtube"
-        description="Dan Abramov shares essential React patterns that "
-        dateAdded="08/03/2024"
-        author="abhishek"
-        
-        
+    <Routes>
+      <Route path="/" element={<LandingPage/>} />
+      <Route 
+        path="/auth" 
+        element={user ? <Navigate to="/home" /> : <LoginSignup />} 
       />
 
-      <Cards
-      title="The Future of Web Development"
-      link="https://publish.twitter.com/?url=https://twitter.com/ellie_Jones_AI/status/1954122545201824246#"
-      type="twitter"
-
-      
+      <Route 
+        path="/home" 
+        element={user ? <Layout/> : <Navigate to="/auth" />} 
       />
 
-      <Cards
-  // --- Article Example ---
-  title="An In-Depth Look at Modern Web Development"
-  link="https://medium.com/enlightenment-of-asia/the-beauty-beyond-the-tragedy-of-the-summer-hikaru-died-3408b4f133c8"
-  type="article"
-  description="This article explores the latest trends, frameworks, and best practices shaping the future of the web."
-  tags={["web-dev", "trends", "javascript"]}
-  dateAdded="10/08/2025"
-  author="Jane Doe"
-  thumbnail="https://miro.medium.com/v2/resize:fit:1100/format:webp/0*3G3DRiCDWw4joQ9v"
-/>
-
-    </div>
+      <Route path="*" element={<Navigate to="/" />} />
+    </Routes>
   );
 };
 

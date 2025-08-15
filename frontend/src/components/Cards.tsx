@@ -26,13 +26,16 @@ const TYPE_CONFIG = {
 };
 
 export type ContentType = keyof typeof TYPE_CONFIG;
-
+interface Tag {
+  _id: string;
+  name: string;
+}
 interface CardsProp {
   title: string;
   link: string;
   type: ContentType;
   description?: string;
-  tags?: string[];
+  tags?: Tag[];
   dateAdded?: string;
   thumbnail?: string;
   author?: string;
@@ -163,7 +166,6 @@ export const Cards = (props: CardsProp) => {
     <div
       className={`max-w-96 relative bg-white border-2 ${typeConfig.borderColor} shadow-md rounded-lg overflow-hidden hover:shadow-lg transition-all duration-200 hover:scale-[1.02]`}
     >
-      {/* Header */}
       <div className={`flex p-4 justify-between ${typeConfig.bgColor}`}>
         <div className="flex items-center gap-2">
           <IconComponent size="sm" />
@@ -189,41 +191,34 @@ export const Cards = (props: CardsProp) => {
         </div>
       </div>
 
-      {/* Content */}
       <div className="p-6">
-        {/* Title */}
         <h1 className="text-xl font-bold text-gray-900 mb-3 leading-tight line-clamp-2">
           {title}
         </h1>
 
-        {/* Author */}
         {author && <p className="text-sm text-gray-500 mb-3">by {author}</p>}
 
-        {/* Description */}
         {description && (
           <p className="text-gray-600 text-sm mb-4 leading-relaxed line-clamp-3">
             {description}
           </p>
         )}
 
-        {/* Embed Content */}
         <div className="mb-4">{getEmbedContent()}</div>
 
-        {/* Tags */}
         {tags.length > 0 && (
           <div className="flex flex-wrap gap-2 mb-4">
-            {tags.map((tag, index) => (
+            {tags.map((tag) => (
               <span
-                key={index}
-                className="px-3 py-1 bg-gray-100 text-gray-700 rounded-full text-xs font-medium hover:bg-gray-200 transition-colors"
+                key={tag._id} 
+                className="px-3 py-1 bg-gray-100 text-gray-700 rounded-full text-xs font-medium ..."
               >
-                #{tag}
+                #{tag.name}
               </span>
             ))}
           </div>
         )}
 
-        {/* Footer */}
         {dateAdded && (
           <div className="text-xs text-gray-400 font-medium">
             Added on {dateAdded}

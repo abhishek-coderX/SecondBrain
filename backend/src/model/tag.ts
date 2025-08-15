@@ -1,11 +1,19 @@
-import mongoose from "mongoose";
+import mongoose, { Types } from "mongoose";
 
-const tagSchema= new mongoose.Schema({
-    title:{
-        type:String,
-        required:true,
-        unique:true
-    }
-})
+const tagSchema = new mongoose.Schema({
+  name: {
+    type: String,
+    required: true,
+    lowercase: true,
+    trim: true,
+  },
+  userId: {
+    type: Types.ObjectId,
+    ref: 'User',
+    required: true,
+  }
+});
 
-export default mongoose.model("Tag",tagSchema)
+tagSchema.index({ name: 1, userId: 1 }, { unique: true });
+
+export default mongoose.model("Tag", tagSchema);
