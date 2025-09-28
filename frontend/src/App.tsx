@@ -11,6 +11,8 @@ import axios from 'axios';
 
 
 
+import SharePage from './pages/SharePage';
+
 const App = () => {
   const { user } = useSelector((state: RootState) => state.auth);
   const dispatch=useDispatch()
@@ -53,6 +55,8 @@ const App = () => {
         path="/home" 
         element={user ? <Layout/> : <Navigate to="/auth" />} 
       />
+
+      <Route path="/share/:shareId" element={<SharePage />} />
 
       <Route path="*" element={<Navigate to="/" />} />
     </Routes>

@@ -38,6 +38,7 @@ const nanoid = customAlphabet('abcdefghijklmnopqrstuvwxyz0123456789', 10);
 export interface ILink extends mongoose.Document {
   hash: string;
   userId: Types.ObjectId;
+  contents: Types.ObjectId[];
 }
 
 const linkSchema = new Schema<ILink>(
@@ -52,8 +53,13 @@ const linkSchema = new Schema<ILink>(
       type: Schema.Types.ObjectId,
       ref: 'User',
       required: true,
-      unique: true, 
     },
+    contents: [
+      {
+        type: Schema.Types.ObjectId,
+        ref: 'Content',
+      },
+    ],
   },
   {
     timestamps: true,

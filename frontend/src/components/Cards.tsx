@@ -1,6 +1,7 @@
-import { ArticleIcon } from "./icons/Article";
-import { TwitterIcon } from "./icons/Twitter";
+import { Content } from "../types/type";
 import { YoutubeIcon } from "./icons/Youtube";
+import { TwitterIcon } from "./icons/Twitter";
+import { ArticleIcon } from "./icons/Article";
 import { ExternalLink, Share } from "lucide-react";
 import { Tweet } from "react-tweet";
 
@@ -25,34 +26,16 @@ const TYPE_CONFIG = {
   },
 };
 
-export type ContentType = keyof typeof TYPE_CONFIG;
-interface Tag {
-  _id: string;
-  name: string;
-}
-interface CardsProp {
-  title: string;
-  link: string;
-  type: ContentType;
-  description?: string;
-  tags?: Tag[];
-  dateAdded?: string;
-  thumbnail?: string;
-  author?: string;
-  duration?: string;
-}
-
-export const Cards = (props: CardsProp) => {
+export const Cards = (props: Content) => {
   const {
     title,
     link,
     type,
     description,
     tags = [],
-    dateAdded,
+    createdAt,
     thumbnail,
-    author,
-    duration,
+    userId,
   } = props;
 
   const typeConfig = TYPE_CONFIG[type];
@@ -196,7 +179,7 @@ export const Cards = (props: CardsProp) => {
           {title}
         </h1>
 
-        {author && <p className="text-sm text-gray-500 mb-3">by {author}</p>}
+        {userId && <p className="text-sm text-gray-500 mb-3">by {userId.username}</p>}
 
         {description && (
           <p className="text-gray-600 text-sm mb-4 leading-relaxed line-clamp-3">
@@ -208,20 +191,20 @@ export const Cards = (props: CardsProp) => {
 
         {tags.length > 0 && (
           <div className="flex flex-wrap gap-2 mb-4">
-            {tags.map((tag) => (
+            {tags.map((tag, index) => (
               <span
-                key={tag._id} 
+                key={index} 
                 className="px-3 py-1 bg-gray-100 text-gray-700 rounded-full text-xs font-medium ..."
               >
-                #{tag.name}
+                #{tag}
               </span>
             ))}
           </div>
         )}
 
-        {dateAdded && (
+        {createdAt && (
           <div className="text-xs text-gray-400 font-medium">
-            Added on {dateAdded}
+            Added on {new Date(createdAt).toLocaleDateString()}
           </div>
         )}
       </div>

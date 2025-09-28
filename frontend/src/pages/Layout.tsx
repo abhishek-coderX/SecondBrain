@@ -8,8 +8,11 @@ import type { Content } from "../types/type";
 import { SideBar } from "../components/SideBar";
 import axios from "axios";
 
+import { ShareModal } from "../components/ShareModal";
+
 const Layout = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isShareModalOpen, setIsShareModalOpen] = useState(false);
    const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [contents, setContents] = useState<Content[]>([]);
@@ -91,6 +94,7 @@ const renderContent = () => {
             variant="secondary"
             text="Share Content"
             startIcon={<ShareIcon size="sm" />}
+            onClick={() => setIsShareModalOpen(true)}
           />
         </div>
 
@@ -100,6 +104,11 @@ const renderContent = () => {
           open={isModalOpen}
           onClose={() => setIsModalOpen(false)}
           onContentAdded={handleContentAdded}
+        />
+        <ShareModal
+          open={isShareModalOpen}
+          onClose={() => setIsShareModalOpen(false)}
+          contents={contents}
         />
       </main>
     </div>

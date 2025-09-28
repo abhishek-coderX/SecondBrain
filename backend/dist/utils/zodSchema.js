@@ -23,8 +23,20 @@ exports.signinSchema = zod_1.z.object({
 exports.createContentSchema = zod_1.z.object({
     title: zod_1.z.string().min(1, "Title is required").max(300),
     type: zod_1.z.enum(["youtube", "twitter", "article"]),
-    link: zod_1.z.url({ message: "A valid link URL is required" }),
-    tags: zod_1.z.array(zod_1.z.string()).optional(),
+    link: zod_1.z.string().url({ message: "A valid link URL is required" }),
+    tags: zod_1.z.union([
+        zod_1.z.array(zod_1.z.string()),
+        zod_1.z.string()
+    ]).optional()
+        .transform((val) => {
+        if (typeof val === "string") {
+            return val
+                .split(",")
+                .map((t) => t.trim())
+                .filter(Boolean);
+        }
+        return val;
+    }),
     description: zod_1.z.string().optional(),
     thumbnail: zod_1.z.string().url({ message: "Thumbnail must be a valid URL" }).optional(),
 });
