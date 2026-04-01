@@ -1,7 +1,7 @@
 
 import React, { useState } from 'react';
 import { CloseIcon } from './icons/Close';
-import { Content } from '../types/type';
+import type { Content } from '../types/type';
 
 interface ShareModalProps {
   open: boolean;

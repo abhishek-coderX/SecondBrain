@@ -31,8 +31,8 @@ export const signinSchema = z.object({
 
 export const createContentSchema = z.object({
   title: z.string().min(1, "Title is required").max(300),
-  type: z.enum(["youtube", "twitter", "article"]),
-  link: z.string().url({ message: "A valid link URL is required" }),
+  type: z.enum(["youtube", "twitter", "article", "thought"]),
+  link: z.string().url({ message: "A valid link URL is required" }).optional(),
   tags: z.union([
     z.array(z.string()),
     z.string()
@@ -47,7 +47,15 @@ export const createContentSchema = z.object({
       return val;
     }),
   description: z.string().optional(),
-  thumbnail: z.string().url({ message: "Thumbnail must be a valid URL" }).optional(),
+  thumbnail: z.string().url({ message: "Thumbnail must be a valid URL" }).optional().or(z.literal("")),
+}).superRefine((data, ctx) => {
+  if (data.type !== "thought" && !data.link) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: "A valid link URL is required for this content type",
+      path: ["link"],
+    });
+  }
 });
 
 

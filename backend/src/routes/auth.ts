@@ -26,15 +26,14 @@ authRouter.post("/signup", validate(signupSchema), async (req, res) => {
         });
 
         const savedUser = await newUser.save();
-        const token = await jwt.sign({ userId: savedUser._id }, process.env.JWT_SECRET!, { expiresIn: '1h' });
+        const token = await jwt.sign({ userId: savedUser._id }, process.env.JWT_SECRET!, { expiresIn: '7d' });
         
         // Set a secure cookie
-        res.cookie("token", token)
-        //  {
-        //     httpOnly: true,
-        //     secure: process.env.NODE_ENV === "production",
-        //     sameSite: 'strict'
-        // });
+        res.cookie("token", token, {
+            httpOnly: true,
+            secure: process.env.NODE_ENV === "production",
+            sameSite: 'lax'
+        });
 
         res.status(200).json({ message: "Signed up successfully" });
 
@@ -57,15 +56,14 @@ authRouter.post("/login", validate(signinSchema), async (req, res) => {
         const isPasswordValid = await bcrypt.compare(password, user.password);
         
         if (isPasswordValid) {
-            const token = jwt.sign({ userId: user._id }, process.env.JWT_SECRET!, { expiresIn: '1h' });
+            const token = jwt.sign({ userId: user._id }, process.env.JWT_SECRET!, { expiresIn: '7d' });
 
             // Set a secure cookie
-            res.cookie("token", token,)
-            //      {
-            //     httpOnly: true,
-            //     secure: process.env.NODE_ENV === "production",
-            //     sameSite: 'strict'
-            // });
+            res.cookie("token", token, {
+                httpOnly: true,
+                secure: process.env.NODE_ENV === "production",
+                sameSite: 'lax'
+            });
 
             res.status(200).json({ message: "Logged in successfully" });
         } else {

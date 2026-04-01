@@ -1,9 +1,14 @@
-import { Content } from "../types/type";
+import type { Content } from "../types/type";
 import { YoutubeIcon } from "./icons/Youtube";
 import { TwitterIcon } from "./icons/Twitter";
 import { ArticleIcon } from "./icons/Article";
-import { ExternalLink, Share } from "lucide-react";
+import { ExternalLink, Share, Trash2 } from "lucide-react";
 import { Tweet } from "react-tweet";
+import { useState } from "react";
+
+interface CardsProps extends Content {
+  onDelete?: (id: string) => void;
+}
 
 const TYPE_CONFIG = {
   youtube: {
@@ -24,10 +29,17 @@ const TYPE_CONFIG = {
     borderColor: "border-gray-200",
     name: "Article",
   },
+  thought: {
+    icon: () => <span className="text-xl">💭</span>,
+    bgColor: "bg-amber-50",
+    borderColor: "border-amber-200",
+    name: "Thought",
+  },
 };
 
-export const Cards = (props: Content) => {
+export const Cards = ({ onDelete, ...props }: CardsProps) => {
   const {
+    _id,
     title,
     link,
     type,
@@ -36,20 +48,27 @@ export const Cards = (props: Content) => {
     createdAt,
     thumbnail,
     userId,
+    duration,
   } = props;
 
-  const typeConfig = TYPE_CONFIG[type];
+  const [confirmDelete, setConfirmDelete] = useState(false);
+
+  const typeConfig = TYPE_CONFIG[type] ?? TYPE_CONFIG.article;
   const IconComponent = typeConfig.icon;
 
   const getEmbedContent = () => {
     switch (type) {
+      case "thought":
+        return description ? (
+          <p className="text-gray-700 text-base leading-relaxed whitespace-pre-wrap">{description}</p>
+        ) : null;
+
       case "youtube": {
-        const videoId = link.includes("youtube.com/watch?v=")
+        const videoId = link?.includes("youtube.com/watch?v=")
           ? link.split("v=")[1]?.split("&")[0]
-          : link.includes("youtu.be/")
+          : link?.includes("youtu.be/")
           ? link.split("youtu.be/")[1]?.split("?")[0]
           : null;
-
         if (videoId) {
           return (
             <div className="w-full relative">
@@ -72,8 +91,9 @@ export const Cards = (props: Content) => {
         }
         break;
       }
+
       case "twitter": {
-        const tweetId = link.split("status/")[1]?.split("?")[0];
+        const tweetId = link?.split("status/")[1]?.split("?")[0];
         if (tweetId) {
           return (
             <div className="w-full">
@@ -82,17 +102,15 @@ export const Cards = (props: Content) => {
           );
         }
         return (
-          <div className="w-full h-48 bg-gray-100 rounded-lg flex items-center justify-center border-2 border-dashed border-gray-300">
+          <div className="w-full h-32 bg-gray-100 rounded-lg flex items-center justify-center border-2 border-dashed border-gray-300">
             <div className="text-center">
               <IconComponent size="lg" />
-              <p className="text-sm text-gray-500 mt-2">Twitter Post</p>
-              <p className="text-xs text-gray-400 mt-1">
-                Click to view original
-              </p>
+              <p className="text-xs text-gray-400 mt-1">Click to view original</p>
             </div>
           </div>
         );
       }
+
       case "article":
         return (
           <div className="w-full">
@@ -103,111 +121,144 @@ export const Cards = (props: Content) => {
                 className="w-full h-auto object-cover rounded-lg"
                 onError={(e) => {
                   e.currentTarget.style.display = "none";
-                  e.currentTarget.nextElementSibling?.classList.remove(
-                    "hidden"
-                  );
                 }}
               />
             ) : (
-              <div className="w-full h-auto bg-gray-100 rounded-lg flex items-center justify-center">
+              <div className="w-full h-32 bg-gray-100 rounded-lg flex items-center justify-center">
                 <IconComponent size="lg" />
               </div>
             )}
-           
           </div>
         );
 
       default:
         return (
-          <div className="w-full h-48 bg-gray-100 rounded-lg flex items-center justify-center">
+          <div className="w-full h-32 bg-gray-100 rounded-lg flex items-center justify-center">
             <IconComponent size="lg" />
           </div>
         );
     }
   };
 
-  const handleLinkClick = () => {
-    window.open(link, "_blank", "noopener,noreferrer");
-  };
-
   const handleShare = async () => {
-    if (navigator.share) {
-      try {
-        await navigator.share({
-          title: title,
-          url: link,
-        });
-      } catch (err) {
+    if (link) {
+      if (navigator.share) {
+        try {
+          await navigator.share({ title, url: link });
+        } catch {
+          navigator.clipboard.writeText(link);
+        }
+      } else {
         navigator.clipboard.writeText(link);
       }
+    }
+  };
+
+  const handleDeleteClick = () => {
+    if (confirmDelete) {
+      onDelete?.(_id);
     } else {
-      navigator.clipboard.writeText(link);
+      setConfirmDelete(true);
+      setTimeout(() => setConfirmDelete(false), 3000); // reset after 3s
     }
   };
 
   return (
     <div
-      className={`max-w-96 relative bg-white border-2 ${typeConfig.borderColor} shadow-md rounded-lg overflow-hidden hover:shadow-lg transition-all duration-200 hover:scale-[1.02]`}
+      className={`max-w-96 relative bg-white border-2 ${typeConfig.borderColor} shadow-sm rounded-xl overflow-hidden hover:shadow-md transition-all duration-200`}
     >
-      <div className={`flex p-4 justify-between ${typeConfig.bgColor}`}>
+      {/* Card Header */}
+      <div className={`flex p-3 justify-between items-center ${typeConfig.bgColor}`}>
         <div className="flex items-center gap-2">
           <IconComponent size="sm" />
-          <h2 className="text-sm font-medium text-gray-700">
+          <h2 className="text-xs font-semibold text-gray-600 uppercase tracking-wide">
             {typeConfig.name}
           </h2>
         </div>
-        <div className="flex gap-2">
-          <button
-            onClick={handleLinkClick}
-            className="p-1 hover:bg-white/50 rounded transition-colors"
-            title="Open original"
-          >
-            <ExternalLink className="w-4 h-4 text-gray-600" />
-          </button>
-          <button
-            onClick={handleShare}
-            className="p-1 hover:bg-white/50 rounded transition-colors"
-            title="Share"
-          >
-            <Share className="w-4 h-4 text-gray-600" />
-          </button>
+        <div className="flex gap-1">
+          {link && (
+            <>
+              <button
+                onClick={() => window.open(link, "_blank", "noopener,noreferrer")}
+                className="p-1 hover:bg-white/60 rounded transition-colors"
+                title="Open original"
+              >
+                <ExternalLink className="w-3.5 h-3.5 text-gray-500" />
+              </button>
+              <button
+                onClick={handleShare}
+                className="p-1 hover:bg-white/60 rounded transition-colors"
+                title="Copy link"
+              >
+                <Share className="w-3.5 h-3.5 text-gray-500" />
+              </button>
+            </>
+          )}
+          {onDelete && (
+            <button
+              onClick={handleDeleteClick}
+              className={`p-1 rounded transition-colors ${
+                confirmDelete
+                  ? "bg-red-500 text-white hover:bg-red-600"
+                  : "hover:bg-white/60 text-gray-500"
+              }`}
+              title={confirmDelete ? "Click again to confirm delete" : "Delete"}
+            >
+              <Trash2 className="w-3.5 h-3.5" />
+            </button>
+          )}
         </div>
       </div>
 
-      <div className="p-6">
-        <h1 className="text-xl font-bold text-gray-900 mb-3 leading-tight line-clamp-2">
+      {/* Card Body */}
+      <div className="p-5">
+        <h1 className="text-base font-bold text-gray-900 mb-2 leading-snug line-clamp-2">
           {title}
         </h1>
 
-        {userId && <p className="text-sm text-gray-500 mb-3">by {userId.username}</p>}
+        {userId?.username && (
+          <p className="text-xs text-gray-400 mb-3">by {userId.username}</p>
+        )}
 
-        {description && (
-          <p className="text-gray-600 text-sm mb-4 leading-relaxed line-clamp-3">
+        {/* Embed / Media */}
+        {type !== "thought" && description && (
+          <p className="text-gray-600 text-sm mb-3 leading-relaxed line-clamp-3">
             {description}
           </p>
         )}
 
-        <div className="mb-4">{getEmbedContent()}</div>
+        <div className="mb-3">{getEmbedContent()}</div>
 
         {tags.length > 0 && (
-          <div className="flex flex-wrap gap-2 mb-4">
+          <div className="flex flex-wrap gap-1.5 mb-3">
             {tags.map((tag, index) => (
               <span
-                key={index} 
-                className="px-3 py-1 bg-gray-100 text-gray-700 rounded-full text-xs font-medium ..."
+                key={index}
+                className="px-2 py-0.5 bg-gray-100 text-gray-600 rounded-full text-xs font-medium"
               >
-                #{tag}
+                #{tag.name}
               </span>
             ))}
           </div>
         )}
 
         {createdAt && (
-          <div className="text-xs text-gray-400 font-medium">
-            Added on {new Date(createdAt).toLocaleDateString()}
+          <div className="text-xs text-gray-400">
+            {new Date(createdAt).toLocaleDateString("en-US", {
+              year: "numeric",
+              month: "short",
+              day: "numeric",
+            })}
           </div>
         )}
       </div>
+
+      {/* Confirm delete banner */}
+      {confirmDelete && (
+        <div className="px-4 py-2 bg-red-50 border-t border-red-200 text-xs text-red-600 text-center animate-pulse">
+          Click trash again to confirm delete
+        </div>
+      )}
     </div>
   );
 };

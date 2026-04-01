@@ -1,12 +1,12 @@
 import mongoose, { Types } from "mongoose";
 
-const contentTypes = ["youtube", "twitter", "article"];
+const contentTypes = ["youtube", "twitter", "article", "thought"];
 
 const contentSchema = new mongoose.Schema(
   {
     link: {
       type: String,
-      required: true,
+      required: false,
     },
     type: {
       type: String,
@@ -16,7 +16,12 @@ const contentSchema = new mongoose.Schema(
     title: {
       type: String,
       required: true,
-      unique: true,
+    },
+    description: {
+      type: String,
+    },
+    thumbnail: {
+      type: String,
     },
     tags: [{ type: Types.ObjectId, ref: "Tag" }],
     userId: {

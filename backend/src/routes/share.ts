@@ -50,20 +50,12 @@ shareRouter.get('/share/:shareLink', async (req, res) => {
     }
 
     const data = await content.find({ userId: newLink.userId })
-                                //  .populate('tags', 'title')
-                                //  .sort({ createdAt: -1 });
-
-    const formattedContent = data.map(item => ({
-        id: item._id,
-        type: item.type,
-        link: item.link,
-        title: item.title,
-        // tags: item.tags.map((tag: any) => tag.title) 
-    }));
+                                 .populate('tags', 'name')
+                                 .sort({ createdAt: -1 });
 
     res.status(200).json({
       username: userData.username,
-      content: formattedContent,
+      content: data,
     });
 
   } catch (error) {
