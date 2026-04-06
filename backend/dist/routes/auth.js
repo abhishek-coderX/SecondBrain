@@ -33,14 +33,13 @@ authRouter.post("/signup", (0, validate_1.validate)(zodSchema_1.signupSchema), (
             password: passwordHash
         });
         const savedUser = yield newUser.save();
-        const token = yield jsonwebtoken_1.default.sign({ userId: savedUser._id }, process.env.JWT_SECRET, { expiresIn: '1h' });
+        const token = yield jsonwebtoken_1.default.sign({ userId: savedUser._id }, process.env.JWT_SECRET, { expiresIn: '7d' });
         // Set a secure cookie
-        res.cookie("token", token);
-        //  {
-        //     httpOnly: true,
-        //     secure: process.env.NODE_ENV === "production",
-        //     sameSite: 'strict'
-        // });
+        res.cookie("token", token, {
+            httpOnly: true,
+            secure: process.env.NODE_ENV === "production",
+            sameSite: 'lax'
+        });
         res.status(200).json({ message: "Signed up successfully" });
     }
     catch (error) {
@@ -57,14 +56,13 @@ authRouter.post("/login", (0, validate_1.validate)(zodSchema_1.signinSchema), (r
         }
         const isPasswordValid = yield bcrypt_1.default.compare(password, user.password);
         if (isPasswordValid) {
-            const token = jsonwebtoken_1.default.sign({ userId: user._id }, process.env.JWT_SECRET, { expiresIn: '1h' });
+            const token = jsonwebtoken_1.default.sign({ userId: user._id }, process.env.JWT_SECRET, { expiresIn: '7d' });
             // Set a secure cookie
-            res.cookie("token", token);
-            //      {
-            //     httpOnly: true,
-            //     secure: process.env.NODE_ENV === "production",
-            //     sameSite: 'strict'
-            // });
+            res.cookie("token", token, {
+                httpOnly: true,
+                secure: process.env.NODE_ENV === "production",
+                sameSite: 'lax'
+            });
             res.status(200).json({ message: "Logged in successfully" });
         }
         else {

@@ -56,19 +56,12 @@ shareRouter.get('/share/:shareLink', (req, res) => __awaiter(void 0, void 0, voi
         if (!userData) {
             return res.status(404).json({ message: 'user not be found.' });
         }
-        const data = yield content_1.default.find({ userId: newLink.userId });
-        //  .populate('tags', 'title')
-        //  .sort({ createdAt: -1 });
-        const formattedContent = data.map(item => ({
-            id: item._id,
-            type: item.type,
-            link: item.link,
-            title: item.title,
-            // tags: item.tags.map((tag: any) => tag.title) 
-        }));
+        const data = yield content_1.default.find({ userId: newLink.userId })
+            .populate('tags', 'name')
+            .sort({ createdAt: -1 });
         res.status(200).json({
             username: userData.username,
-            content: formattedContent,
+            content: data,
         });
     }
     catch (error) {
