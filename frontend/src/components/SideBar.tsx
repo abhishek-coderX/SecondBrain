@@ -5,7 +5,6 @@ import { ArticleIcon } from "./icons/Article";
 import { Logo } from "./icons/Logo";
 import { Hamburger } from "./icons/Hamburger";
 import { CloseIcon } from "./icons/Close";
-import { Button } from "./ui/Button";
 import axios from "axios";
 import { logoutUser } from "../store/authSlice";
 import { useNavigate } from "react-router-dom";
@@ -18,11 +17,11 @@ interface SideBarProps {
 }
 
 const NAV_ITEMS = [
-  { label: "All Content", filter: "all" as const,      icon: null },
-  { label: "Thoughts",    filter: "thought" as ContentType, icon: "💭" },
-  { label: "Twitter",     filter: "twitter" as ContentType, icon: null, IconComp: TwitterIcon },
-  { label: "YouTube",     filter: "youtube" as ContentType, icon: null, IconComp: YoutubeIcon },
-  { label: "Articles",    filter: "article" as ContentType, icon: null, IconComp: ArticleIcon },
+  { label: "All Logs",    filter: "all" as const,           emoji: "🗺️", IconComp: null },
+  { label: "Thoughts",   filter: "thought" as ContentType,  emoji: "💭", IconComp: null },
+  { label: "Twitter",    filter: "twitter" as ContentType,  emoji: null, IconComp: TwitterIcon },
+  { label: "YouTube",    filter: "youtube" as ContentType,  emoji: null, IconComp: YoutubeIcon },
+  { label: "Articles",   filter: "article" as ContentType,  emoji: null, IconComp: ArticleIcon },
 ];
 
 export const SideBar = ({ activeFilter, onFilterChange }: SideBarProps) => {
@@ -49,72 +48,92 @@ export const SideBar = ({ activeFilter, onFilterChange }: SideBarProps) => {
   return (
     <>
       {/* Mobile top bar */}
-      <div className="flex items-center justify-between p-4 md:hidden border-b border-gray-200">
-        <div className="flex items-center space-x-2">
+      <div className="flex items-center justify-between p-4 md:hidden"
+        style={{ backgroundColor: '#fffdf7', borderBottom: '2px solid #e8d9b0' }}>
+        <div className="flex items-center gap-2">
           <Logo size="md" />
-          <h1 className="font-bold text-lg">Second Brain</h1>
+          <span style={{ fontFamily: "'Cinzel', serif", color: '#b8860b', fontWeight: 700 }}>SecondBrain</span>
         </div>
-        <button onClick={() => setOpen(!open)}>
+        <button onClick={() => setOpen(!open)} style={{ color: '#b8860b' }}>
           {open ? <CloseIcon size="md" /> : <Hamburger size="md" />}
         </button>
       </div>
 
       {/* Sidebar panel */}
-      <div
-        className={`
-          fixed inset-y-0 left-0 z-40 w-64 transform bg-white shadow-lg border-r border-gray-100
+      <div className={`
+          fixed inset-y-0 left-0 z-40 w-64 transform
           transition-transform duration-300 ease-in-out
           md:translate-x-0 md:static md:shadow-none
           ${open ? "translate-x-0" : "-translate-x-full"}
+          flex flex-col
         `}
-      >
+        style={{ backgroundColor: '#fffdf7', borderRight: '2px solid #e8d9b0', boxShadow: '4px 0 20px rgba(180,140,20,0.08)' }}>
+
         {/* Logo header */}
-        <div className="flex items-center space-x-2 p-5 border-b border-gray-100">
+        <div className="flex items-center gap-3 p-5" style={{ borderBottom: '1px solid #e8d9b0' }}>
           <Logo size="lg" />
-          <h1 className="font-bold text-lg tracking-tight">Second Brain</h1>
+          <div>
+            <h1 style={{ fontFamily: "'Cinzel', serif", color: '#b8860b', fontWeight: 700, fontSize: '1.05rem', lineHeight: 1.2 }}>
+              SecondBrain
+            </h1>
+            <p style={{ color: '#b8a070', fontSize: '0.65rem', fontFamily: "'Cinzel', serif", letterSpacing: '0.12em' }}>
+              YOUR LOG POSE
+            </p>
+          </div>
         </div>
 
-        <nav className="h-[calc(100%-73px)] flex flex-col justify-between p-4">
-          <div className="space-y-1">
-            {NAV_ITEMS.map(({ label, filter, icon, IconComp }) => {
-              const isActive = activeFilter === filter;
-              return (
-                <button
-                  key={filter}
-                  onClick={() => handleFilterClick(filter)}
-                  className={`
-                    w-full flex items-center space-x-3 px-3 py-2.5 rounded-lg text-sm font-medium
-                    transition-all duration-150 text-left
-                    ${isActive
-                      ? "bg-indigo-50 text-indigo-700"
-                      : "text-gray-600 hover:bg-gray-50 hover:text-gray-900"
-                    }
-                  `}
-                >
-                  {icon && <span className="text-base">{icon}</span>}
-                  {IconComp && <IconComp size="md" />}
-                  {!icon && !IconComp && <Logo size="md" />}
-                  <span>{label}</span>
-                  {isActive && (
-                    <span className="ml-auto w-1.5 h-1.5 rounded-full bg-indigo-500" />
-                  )}
-                </button>
-              );
-            })}
-          </div>
+        {/* Nav label */}
+        <div className="px-4 pt-5 pb-2">
+          <p style={{ color: '#b8a070', fontSize: '0.6rem', fontFamily: "'Cinzel', serif", letterSpacing: '0.18em', textTransform: 'uppercase' }}>
+            Navigation
+          </p>
+        </div>
 
-          <div>
-            <Button onClick={handleLogout} size="md" variant="danger" text="Logout" />
-          </div>
+        {/* Nav items */}
+        <nav className="flex-1 px-3 space-y-1 overflow-y-auto">
+          {NAV_ITEMS.map(({ label, filter, emoji, IconComp }) => {
+            const isActive = activeFilter === filter;
+            return (
+              <button key={filter} onClick={() => handleFilterClick(filter)}
+                className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm transition-all duration-150 text-left"
+                style={{
+                  backgroundColor: isActive ? '#d4a01718' : 'transparent',
+                  border: isActive ? '1.5px solid #d4a01750' : '1.5px solid transparent',
+                  color: isActive ? '#b8860b' : '#7a6e5a',
+                  fontFamily: "'Crimson Text', serif",
+                  fontSize: '1.05rem',
+                  cursor: 'pointer',
+                }}
+                onMouseEnter={(e) => { if (!isActive) { e.currentTarget.style.backgroundColor = '#d4a0170a'; e.currentTarget.style.color = '#1a2840'; } }}
+                onMouseLeave={(e) => { if (!isActive) { e.currentTarget.style.backgroundColor = 'transparent'; e.currentTarget.style.color = '#7a6e5a'; } }}
+              >
+                {emoji && <span className="text-base">{emoji}</span>}
+                {IconComp && <IconComp size="sm" />}
+                <span>{label}</span>
+                {isActive && <span className="ml-auto w-1.5 h-1.5 rounded-full" style={{ backgroundColor: '#b8860b' }} />}
+              </button>
+            );
+          })}
         </nav>
+
+        {/* Divider */}
+        <div className="mx-4 my-3" style={{ height: '1px', backgroundColor: '#e8d9b0' }} />
+
+        {/* Logout */}
+        <div className="p-4">
+          <button onClick={handleLogout}
+            className="w-full py-2.5 rounded-xl font-bold tracking-wide transition-all"
+            style={{ backgroundColor: '#fff5f5', border: '1.5px solid #fca5a5', color: '#b91c1c', fontFamily: "'Cinzel', serif", fontSize: '0.7rem', letterSpacing: '0.08em', cursor: 'pointer' }}
+            onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#fee2e2')}
+            onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = '#fff5f5')}>
+            🏴‍☠️ Abandon Ship
+          </button>
+        </div>
       </div>
 
       {/* Mobile overlay */}
       {open && (
-        <div
-          className="fixed inset-0 bg-black opacity-60 z-30 md:hidden"
-          onClick={() => setOpen(false)}
-        />
+        <div className="fixed inset-0 bg-black/40 z-30 md:hidden" onClick={() => setOpen(false)} />
       )}
     </>
   );

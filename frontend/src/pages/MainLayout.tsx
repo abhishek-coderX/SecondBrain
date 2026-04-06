@@ -10,9 +10,9 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
   const [activeFilter, setActiveFilter] = useState<ContentType | "all">("all");
 
   return (
-    <div className="flex min-h-screen bg-gray-50">
+    <div className="flex h-screen overflow-hidden" style={{ backgroundColor: '#faf8f2' }}>
       <SideBar activeFilter={activeFilter} onFilterChange={setActiveFilter} />
-      <main className="flex-1 p-6 overflow-auto">
+      <main className="flex-1 overflow-y-auto p-6" style={{ backgroundColor: '#faf8f2' }}>
         {children(activeFilter)}
       </main>
     </div>
