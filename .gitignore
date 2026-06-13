@@ -28,4 +28,5 @@ Thumbs.db
 
 .env
 node_modules/
-dist/
+dist/ROADMAP.md
+skills-lock.json
