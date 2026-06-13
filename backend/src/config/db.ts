@@ -1,7 +1,9 @@
 import mongoose from "mongoose";
 
-const connectToDb=async()=>{
-    mongoose.connect("mongodb://localhost:27017/secondBrain")
-}
+const connectToDb = async () => {
+  const uri = process.env.MONGO_URI;
+  if (!uri) throw new Error("MONGO_URI is not defined in environment variables");
+  await mongoose.connect(uri);
+};
 
-export default connectToDb
+export default connectToDb;

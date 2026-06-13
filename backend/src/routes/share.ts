@@ -10,23 +10,29 @@ const shareRouter=express.Router()
 shareRouter.post('/share', authMiddleware, validate(shareSchema), async (req: AuthRequest, res) => {
   try {
     const userId = req.userId!;
-    const { share } = req.body;
+    const { contentIds } = req.body;
+    const ownedContent = await content.find({
+      _id: { $in: contentIds },
+      userId,
+    }).select("_id");
 
-    if (share) {
-      let newlink = await link.findOne({ userId });
-      if (!newlink) {
-        newlink = new link({ userId });
-        await newlink.save();
-      }
-      const shareableLink = `${req.protocol}://${req.get('host')}/share/${newlink.hash}`;
-      return res.status(200).json({
-        link: shareableLink,
-      });
-
-    } else {
-      await link.deleteOne({ userId });
-      return res.status(200).json({ message: 'Sharing  disabled.' });
+    if (ownedContent.length !== contentIds.length) {
+      return res.status(403).json({ message: "You can only share your own content." });
     }
+
+    const ownedContentIds = ownedContent.map((item) => item._id);
+
+    let newlink = await link.findOne({ userId });
+    if (!newlink) {
+      newlink = new link({ userId, contents: ownedContentIds });
+    } else {
+      newlink.contents = ownedContentIds;
+    }
+    await newlink.save();
+    
+    return res.status(200).json({
+      hash: newlink.hash,
+    });
   } catch (error) {
     console.error("Error updating share settings:", error);
     res.status(500).json({ message: 'Server error.' });
@@ -49,7 +55,7 @@ shareRouter.get('/share/:shareLink', async (req, res) => {
         return res.status(404).json({ message: 'user not be found.' });
     }
 
-    const data = await content.find({ userId: newLink.userId })
+    const data = await content.find({ _id: { $in: newLink.contents } })
                                  .populate('tags', 'name')
                                  .sort({ createdAt: -1 });
 

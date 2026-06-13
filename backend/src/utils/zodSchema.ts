@@ -60,5 +60,34 @@ export const createContentSchema = z.object({
 
 
 export const shareSchema = z.object({
-  share: z.boolean(),
+  contentIds: z.array(z.string()).min(1, "Select at least one content to share"),
+});
+
+export const updateContentSchema = z.object({
+  title: z.string().min(1, "Title is required").max(300).optional(),
+  type: z.enum(["youtube", "twitter", "article", "thought"]).optional(),
+  link: z.string().url({ message: "A valid link URL is required" }).optional().or(z.literal("")),
+  tags: z.union([
+    z.array(z.string()),
+    z.string()
+  ]).optional()
+    .transform((val) => {
+      if (typeof val === "string") {
+        return val
+          .split(",")
+          .map((t) => t.trim())
+          .filter(Boolean);
+      }
+      return val;
+    }),
+  description: z.string().optional(),
+  thumbnail: z.string().url({ message: "Thumbnail must be a valid URL" }).optional().or(z.literal("")),
+}).superRefine((data, ctx) => {
+  if (data.type && data.type !== "thought" && (!data.link || data.link === "")) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: "A valid link URL is required for this content type",
+      path: ["link"],
+    });
+  }
 });

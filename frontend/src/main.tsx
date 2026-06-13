@@ -6,14 +6,25 @@ import App from './App.tsx'
 import { Provider } from 'react-redux';
 import store from './store/store.ts';
 import { BrowserRouter } from 'react-router-dom';
+import { Toaster } from 'react-hot-toast';
 
 createRoot(document.getElementById('root')!).render(
-
   <StrictMode>
     <Provider store={store}>
       <BrowserRouter>
-    <App />
-    </BrowserRouter>
+        <App />
+        <Toaster
+          position="bottom-right"
+          toastOptions={{
+            style: {
+              borderRadius: '18px',
+              background: '#1e293b',
+              color: '#f8fafc',
+              fontSize: '0.875rem',
+            },
+          }}
+        />
+      </BrowserRouter>
     </Provider>
   </StrictMode>,
 )

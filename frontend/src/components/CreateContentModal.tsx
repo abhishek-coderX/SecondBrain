@@ -1,6 +1,45 @@
 import React, { useState, useEffect } from "react";
-import axios from "axios";
+import { createPortal } from "react-dom";
+import { FileText, Link2, PenSquare, Video, X } from "lucide-react";
+import api from "../utils/api";
 import type { Content, ContentType } from "../types/type";
+
+/** Description textarea with AI hint shown on focus or when empty */
+function DescriptionField({
+  value,
+  onChange,
+  isThought,
+  error,
+}: {
+  value: string;
+  onChange: (e: React.ChangeEvent<HTMLTextAreaElement>) => void;
+  isThought: boolean;
+  error?: string;
+}) {
+  const [focused, setFocused] = useState(false);
+  const showHint = !isThought && (focused || !value.trim());
+  return (
+    <div className="md:col-span-2">
+      <label className="bento-label">{isThought ? "Your Thought" : "Notes"}</label>
+      <textarea
+        name="description"
+        value={value}
+        onChange={onChange}
+        onFocus={() => setFocused(true)}
+        onBlur={() => setFocused(false)}
+        rows={isThought ? 5 : 3}
+        placeholder={isThought ? "Write your thought here..." : "Brief notes, highlights, or why this matters..."}
+        className="bento-textarea min-h-[96px]"
+      />
+      {showHint ? (
+        <p className="mt-1.5 text-xs text-slate-400">
+          💡 Tip: A good description helps your AI assistant answer questions accurately. Describe the key ideas, concepts, and why you saved this.
+        </p>
+      ) : null}
+      {error ? <p className="mt-1.5 text-xs text-red-600">{error}</p> : null}
+    </div>
+  );
+}
 
 interface CreateContentModalProps {
   open: boolean;
@@ -9,11 +48,11 @@ interface CreateContentModalProps {
   defaultType?: ContentType;
 }
 
-const CONTENT_TYPES: { value: ContentType; label: string; emoji: string; accent: string }[] = [
-  { value: "youtube", label: "Video Log", emoji: "📺", accent: "#ef4444" },
-  { value: "twitter", label: "Crow's Nest", emoji: "🐦", accent: "#60a5fa" },
-  { value: "article", label: "Ship's Log", emoji: "📜", accent: "#d4a017" },
-  { value: "thought", label: "Inner Voice", emoji: "💭", accent: "#f59e0b" },
+const contentTypes: { value: ContentType; label: string; icon: React.ElementType; tone: string }[] = [
+  { value: "youtube", label: "Video", icon: Video, tone: "bg-[rgba(220,38,38,0.08)] text-[#b91c1c]" },
+  { value: "twitter", label: "Twitter", icon: Link2, tone: "bg-[rgba(29,155,240,0.08)] text-[#0369a1]" },
+  { value: "article", label: "Article", icon: FileText, tone: "bg-[rgba(22,163,74,0.08)] text-[#166534]" },
+  { value: "thought", label: "Thought", icon: PenSquare, tone: "bg-[rgba(234,88,12,0.08)] text-[#c2410c]" },
 ];
 
 interface FormState {
@@ -27,7 +66,12 @@ interface FormState {
 
 export function CreateContentModal({ open, onClose, onContentAdded, defaultType }: CreateContentModalProps) {
   const [formData, setFormData] = useState<FormState>({
-    title: "", type: defaultType ?? "youtube", link: "", description: "", tags: "", thumbnail: "",
+    title: "",
+    type: defaultType ?? "youtube",
+    link: "",
+    description: "",
+    tags: "",
+    thumbnail: "",
   });
   const [errors, setErrors] = useState<Partial<Record<keyof FormState, string>>>({});
   const [isLoading, setIsLoading] = useState(false);
@@ -44,6 +88,15 @@ export function CreateContentModal({ open, onClose, onContentAdded, defaultType 
   }, [open, defaultType]);
 
   useEffect(() => {
+    if (!open) return;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = previousOverflow;
+    };
+  }, [open]);
+
+  useEffect(() => {
     if (isThought) return;
     const { link } = formData;
     if (!link) return;
@@ -54,17 +107,24 @@ export function CreateContentModal({ open, onClose, onContentAdded, defaultType 
     } else {
       setFormData((prev) => ({ ...prev, type: "article" }));
     }
-  }, [formData.link]);
+  }, [formData.link, isThought]);
 
-  const validateForm = (): boolean => {
+  const validateForm = () => {
     const newErrors: Partial<Record<keyof FormState, string>> = {};
-    if (!formData.title.trim()) newErrors.title = "A title is required, Navigator.";
+    if (!formData.title.trim()) newErrors.title = "Title is required.";
     if (!isThought) {
       if (!formData.link.trim()) newErrors.link = "A link is required.";
-      else { try { new URL(formData.link); } catch { newErrors.link = "Enter a valid URL."; } }
-    } else {
-      if (!formData.description.trim()) newErrors.description = "Write your thought.";
+      else {
+        try {
+          new URL(formData.link);
+        } catch {
+          newErrors.link = "Enter a valid URL.";
+        }
+      }
+    } else if (!formData.description.trim()) {
+      newErrors.description = "Write your thought.";
     }
+
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
@@ -78,22 +138,26 @@ export function CreateContentModal({ open, onClose, onContentAdded, defaultType 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!validateForm()) return;
+
     setIsLoading(true);
     setApiError(null);
+
     const tagsArray = formData.tags ? formData.tags.split(",").map((t) => t.trim()).filter(Boolean) : [];
     const submitData = {
-      title: formData.title, type: formData.type,
+      title: formData.title,
+      type: formData.type,
       ...(formData.link && { link: formData.link }),
       ...(formData.description && { description: formData.description }),
       ...(formData.thumbnail && { thumbnail: formData.thumbnail }),
       tags: tagsArray,
     };
+
     try {
-      const response = await axios.post("http://localhost:4000/content", submitData, { withCredentials: true });
+      const response = await api.post("/content", submitData);
       onContentAdded(response.data);
       onClose();
     } catch (error: any) {
-      setApiError(error.response?.data?.message || "Something went wrong on the high seas.");
+      setApiError(error.response?.data?.message || "Something went wrong. Please try again.");
     } finally {
       setIsLoading(false);
     }
@@ -101,159 +165,88 @@ export function CreateContentModal({ open, onClose, onContentAdded, defaultType 
 
   if (!open) return null;
 
-  const inputStyle = {
-    backgroundColor: '#0d1f3c',
-    border: '1.5px solid #1e3a5f',
-    color: '#f5f0e8',
-    fontFamily: "'Crimson Text', serif",
-    fontSize: '1rem',
-    borderRadius: '10px',
-    padding: '10px 14px',
-    width: '100%',
-    outline: 'none',
-    transition: 'border-color 0.15s',
-  };
-
-  const labelStyle = {
-    display: 'block',
-    fontSize: '0.7rem',
-    fontFamily: "'Cinzel', serif",
-    color: '#d4a017',
-    fontWeight: 700,
-    letterSpacing: '0.12em',
-    textTransform: 'uppercase' as const,
-    marginBottom: '6px',
-  };
-
-  return (
-    <div className="fixed inset-0 bg-black/75 backdrop-blur-sm flex justify-center items-center z-50 p-4"
-      onClick={onClose}>
-      <div className="w-full max-w-md flex flex-col max-h-[92vh] rounded-2xl overflow-hidden"
-        style={{ backgroundColor: '#111f38', border: '2px solid #1e3a5f', boxShadow: '0 30px 80px rgba(0,0,0,0.7)' }}
-        onClick={(e) => e.stopPropagation()}>
-
-        {/* Header */}
-        <div className="flex items-center justify-between px-5 py-4"
-          style={{ borderBottom: '1px solid #1e3a5f', backgroundColor: '#0d1f3c' }}>
+  return createPortal(
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/35 p-4 backdrop-blur-sm" onClick={onClose}>
+      <div className="bento-card flex w-full max-w-md flex-col overflow-hidden" style={{ maxHeight: '85vh' }} onClick={(e) => e.stopPropagation()}>
+        {/* Header — always visible */}
+        <div className="flex flex-shrink-0 items-center justify-between border-b border-[rgba(125,105,86,0.14)] px-4 py-4">
           <div>
-            <h2 style={{ fontFamily: "'Cinzel', serif", color: '#d4a017', fontWeight: 700, fontSize: '1.1rem' }}>
-              Stow the Loot 🏴‍☠️
-            </h2>
-            <p style={{ color: '#7a8fa6', fontSize: '0.8rem', fontFamily: "'Crimson Text', serif" }}>
-              Add to your personal treasure chest
-            </p>
+            <p className="bento-heading text-2xl text-slate-900">Add to your brain</p>
+            <p className="mt-0.5 text-xs text-slate-500">Capture a new block without changing your current workflow.</p>
           </div>
-          <button onClick={onClose}
-            className="w-8 h-8 flex items-center justify-center rounded-lg transition-colors text-xl"
-            style={{ color: '#7a8fa6', backgroundColor: 'transparent' }}
-            onMouseEnter={(e) => (e.currentTarget.style.color = '#f5f0e8')}
-            onMouseLeave={(e) => (e.currentTarget.style.color = '#7a8fa6')}>
-            ✕
+          <button className="flex h-9 w-9 items-center justify-center rounded-full bg-black/5 text-slate-600" onClick={onClose}>
+            <X className="h-4 w-4" />
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="overflow-y-auto flex flex-col flex-1">
-          <div className="p-5 space-y-4">
-            {/* Type selector */}
+        {/* Scrollable form body */}
+        <form onSubmit={handleSubmit} className="flex min-h-0 flex-1 flex-col">
+          <div className="flex-1 overflow-y-auto p-4">
             <div>
-              <label style={labelStyle}>⚓ Loot Type</label>
-              <div className="grid grid-cols-4 gap-2">
-                {CONTENT_TYPES.map(({ value, label, emoji, accent }) => {
+              <label className="bento-label">Content Type</label>
+              <div className="grid gap-2 sm:grid-cols-4">
+                {contentTypes.map(({ value, label, icon: Icon, tone }) => {
                   const isActive = formData.type === value;
                   return (
-                    <button key={value} type="button"
+                    <button
+                      key={value}
+                      type="button"
                       onClick={() => setFormData((prev) => ({ ...prev, type: value, link: "" }))}
-                      className="flex flex-col items-center justify-center py-3 px-1 rounded-xl text-xs font-semibold transition-all"
-                      style={{
-                        backgroundColor: isActive ? `${accent}18` : '#0d1f3c',
-                        border: `2px solid ${isActive ? accent : '#1e3a5f'}`,
-                        color: isActive ? accent : '#7a8fa6',
-                        fontFamily: "'Crimson Text', serif",
-                        fontSize: '0.82rem',
-                      }}>
-                      <span className="text-lg mb-1">{emoji}</span>
-                      {label}
+                      className={`rounded-[16px] border px-3 py-3 text-left text-sm ${isActive ? "border-[rgba(223,133,82,0.28)] bg-[rgba(240,169,120,0.14)]" : "border-[rgba(125,105,86,0.14)] bg-white/65"}`}
+                    >
+                      <div className={`mb-2 flex h-8 w-8 items-center justify-center rounded-xl ${tone}`}>
+                        <Icon className="h-3.5 w-3.5" />
+                      </div>
+                      <p className="text-sm font-semibold text-slate-900">{label}</p>
                     </button>
                   );
                 })}
               </div>
             </div>
 
-            {/* Title */}
-            <div>
-              <label style={labelStyle}>🗺️ Title *</label>
-              <input type="text" name="title" value={formData.title} onChange={handleChange}
-                placeholder="Name this treasure..."
-                style={{ ...inputStyle, borderColor: errors.title ? '#ef4444' : '#1e3a5f' }}
-                onFocus={(e) => (e.target.style.borderColor = errors.title ? '#ef4444' : '#d4a017')}
-                onBlur={(e) => (e.target.style.borderColor = errors.title ? '#ef4444' : '#1e3a5f')}
-              />
-              {errors.title && <p style={{ color: '#ef4444', fontSize: '0.78rem', marginTop: '4px', fontFamily: "'Crimson Text', serif" }}>{errors.title}</p>}
-            </div>
-
-            {/* Link */}
-            {!isThought && (
-              <div>
-                <label style={labelStyle}>🔗 Link *</label>
-                <input type="url" name="link" value={formData.link} onChange={handleChange}
-                  placeholder="https://..."
-                  style={{ ...inputStyle, borderColor: errors.link ? '#ef4444' : '#1e3a5f' }}
-                  onFocus={(e) => (e.target.style.borderColor = errors.link ? '#ef4444' : '#d4a017')}
-                  onBlur={(e) => (e.target.style.borderColor = errors.link ? '#ef4444' : '#1e3a5f')}
-                />
-                {errors.link && <p style={{ color: '#ef4444', fontSize: '0.78rem', marginTop: '4px', fontFamily: "'Crimson Text', serif" }}>{errors.link}</p>}
+            <div className="mt-3 grid gap-3 md:grid-cols-2">
+              <div className="md:col-span-2">
+                <label className="bento-label">Title</label>
+                <input name="title" value={formData.title} onChange={handleChange} placeholder="Name this item..." className="bento-input text-sm" />
+                {errors.title ? <p className="mt-1.5 text-xs text-red-600">{errors.title}</p> : null}
               </div>
-            )}
 
-            {/* Description / Thought */}
-            <div>
-              <label style={labelStyle}>{isThought ? "💭 Your Thought *" : "📝 Description"}</label>
-              <textarea name="description" value={formData.description} onChange={handleChange}
-                rows={isThought ? 5 : 3}
-                placeholder={isThought ? "Write your thought here..." : "Brief description..."}
-                style={{ ...inputStyle, resize: 'none', borderColor: errors.description ? '#ef4444' : '#1e3a5f' }}
-                onFocus={(e) => (e.target.style.borderColor = errors.description ? '#ef4444' : '#d4a017')}
-                onBlur={(e) => (e.target.style.borderColor = errors.description ? '#ef4444' : '#1e3a5f')}
+              {!isThought ? (
+                <div className="md:col-span-2">
+                  <label className="bento-label">Link</label>
+                  <input name="link" value={formData.link} onChange={handleChange} placeholder="https://..." className="bento-input text-sm" />
+                  {errors.link ? <p className="mt-1.5 text-xs text-red-600">{errors.link}</p> : null}
+                </div>
+              ) : null}
+
+              <DescriptionField
+                value={formData.description}
+                onChange={handleChange}
+                isThought={isThought}
+                error={errors.description}
               />
-              {errors.description && <p style={{ color: '#ef4444', fontSize: '0.78rem', marginTop: '4px', fontFamily: "'Crimson Text', serif" }}>{errors.description}</p>}
+
+              <div>
+                <label className="bento-label">Tags</label>
+                <input name="tags" value={formData.tags} onChange={handleChange} placeholder="learning, productivity" className="bento-input text-sm" />
+              </div>
             </div>
 
-            {/* Tags */}
-            <div>
-              <label style={labelStyle}>🏷️ Bounty Tags</label>
-              <input type="text" name="tags" value={formData.tags} onChange={handleChange}
-                placeholder="learning, productivity (comma separated)"
-                style={inputStyle}
-                onFocus={(e) => (e.target.style.borderColor = '#d4a017')}
-                onBlur={(e) => (e.target.style.borderColor = '#1e3a5f')}
-              />
-            </div>
+            {apiError ? <div className="mt-3 rounded-[18px] border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-600">{apiError}</div> : null}
           </div>
 
-          {apiError && (
-            <div className="mx-5 mb-3 px-4 py-3 rounded-xl text-sm"
-              style={{ backgroundColor: 'rgba(185,28,28,0.15)', border: '1.5px solid #7f1d1d', color: '#ef4444', fontFamily: "'Crimson Text', serif" }}>
-              ⚠️ {apiError}
-            </div>
-          )}
-
-          {/* Footer */}
-          <div className="flex gap-3 p-5 mt-auto" style={{ borderTop: '1px solid #1e3a5f', backgroundColor: '#0d1f3c' }}>
-            <button type="button" onClick={onClose} disabled={isLoading}
-              className="flex-1 py-2.5 rounded-xl text-sm font-semibold transition-colors disabled:opacity-50"
-              style={{ border: '1.5px solid #1e3a5f', color: '#7a8fa6', backgroundColor: 'transparent', fontFamily: "'Cinzel', serif", fontSize: '0.7rem', letterSpacing: '0.05em' }}>
-              Retreat
+          {/* Footer — always visible */}
+          <div className="flex flex-shrink-0 flex-col gap-3 border-t border-[rgba(125,105,86,0.14)] px-4 py-4 sm:flex-row">
+            <button type="button" onClick={onClose} disabled={isLoading} className="bento-button bento-button-secondary flex-1">
+              Cancel
             </button>
-            <button type="submit" disabled={isLoading}
-              className="flex-1 py-2.5 rounded-xl text-sm font-bold transition-all disabled:opacity-50"
-              style={{ backgroundColor: '#d4a017', color: '#0a1628', fontFamily: "'Cinzel', serif", fontSize: '0.7rem', letterSpacing: '0.08em', border: 'none' }}
-              onMouseEnter={(e) => { if (!isLoading) e.currentTarget.style.backgroundColor = '#f0c040'; }}
-              onMouseLeave={(e) => { if (!isLoading) e.currentTarget.style.backgroundColor = '#d4a017'; }}>
-              {isLoading ? "⚓ Storing..." : "⚓ Stow to Chest"}
+            <button type="submit" disabled={isLoading} className="bento-button bento-button-primary flex-1">
+              {isLoading ? "Saving..." : "Save to Brain"}
             </button>
           </div>
         </form>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }

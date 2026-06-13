@@ -2,19 +2,21 @@ import { useEffect, useState } from "react";
 import { Cards } from "../components/Cards";
 import { CreateContentModal } from "../components/CreateContentModal";
 import { ShareModal } from "../components/ShareModal";
+import { SearchBar } from "../components/SearchBar";
+import { LayoutGrid, Plus, Share2 } from "lucide-react";
 import type { Content, ContentType } from "../types/type";
-import axios from "axios";
+import api from "../utils/api";
 
 interface ContentPageProps {
   activeFilter: ContentType | "all";
 }
 
 const FILTER_LABELS: Record<ContentType | "all", string> = {
-  all: "⚓ All Content",
-  thought: "💭 Thoughts",
-  twitter: "🐦 Twitter",
-  youtube: "📺 YouTube",
-  article: "📜 Articles",
+  all: "All Content",
+  thought: "Thoughts",
+  twitter: "Twitter",
+  youtube: "YouTube",
+  article: "Articles",
 };
 
 const ContentPage = ({ activeFilter }: ContentPageProps) => {
@@ -23,11 +25,13 @@ const ContentPage = ({ activeFilter }: ContentPageProps) => {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [contents, setContents] = useState<Content[]>([]);
+  const [searchResults, setSearchResults] = useState<Content[] | null>(null);
+  const [isSearching, setIsSearching] = useState(false);
 
   useEffect(() => {
     const fetchContent = async () => {
       try {
-        const res = await axios.get("http://localhost:4000/content", { withCredentials: true });
+        const res = await api.get("/content");
         setContents(res.data);
       } catch {
         setError("Failed to fetch your content. Please try again.");
@@ -44,22 +48,27 @@ const ContentPage = ({ activeFilter }: ContentPageProps) => {
 
   const handleDelete = async (id: string) => {
     try {
-      await axios.delete(`http://localhost:4000/content/${id}`, { withCredentials: true });
+      await api.delete(`/content/${id}`);
       setContents((prev) => prev.filter((c) => c._id !== id));
     } catch {
       console.error("Failed to delete content");
     }
   };
 
-  const filteredContents = activeFilter === "all" ? contents : contents.filter((c) => c.type === activeFilter);
+  const handleUpdate = (updated: Content) => {
+    setContents((prev) => prev.map((c) => (c._id === updated._id ? updated : c)));
+  };
+
+  const displayedContents = (searchResults !== null ? searchResults : contents).filter((c) =>
+    activeFilter === "all" ? true : c.type === activeFilter
+  );
 
   const renderContent = () => {
-    if (isLoading) {
+    if (isLoading || isSearching) {
       return (
-        <div className="columns-1 sm:columns-2 lg:columns-3 xl:columns-4 gap-5">
-          {[...Array(8)].map((_, i) => (
-            <div key={i} className="break-inside-avoid mb-5 rounded-xl op-skeleton"
-              style={{ height: [220, 160, 280, 200, 240, 170, 300, 190][i] + "px", border: '2px solid #e8d9b0' }} />
+        <div className="w-full columns-1 gap-5 sm:columns-2 lg:columns-3 2xl:columns-4">
+          {[220, 280, 190, 250, 170, 300, 210, 260].map((height, i) => (
+            <div key={i} className="bento-skeleton mb-5 break-inside-avoid" style={{ height }} />
           ))}
         </div>
       );
@@ -67,32 +76,40 @@ const ContentPage = ({ activeFilter }: ContentPageProps) => {
 
     if (error) {
       return (
-        <div className="flex flex-col items-center justify-center h-64">
-          <p className="text-4xl mb-3">⚓</p>
-          <p style={{ color: '#b91c1c', fontFamily: "'Crimson Text', serif", fontSize: '1rem' }}>{error}</p>
+        <div className="bento-card flex min-h-[260px] flex-col items-center justify-center p-8 text-center">
+          <p className="text-lg font-semibold text-red-500">{error}</p>
+          <p className="mt-2 text-sm text-slate-500">The rest of the UI is still intact. Try refreshing after the backend is ready.</p>
         </div>
       );
     }
 
-    if (filteredContents.length === 0) {
+    if (displayedContents.length === 0) {
+      const isSearchActive = searchResults !== null;
+
       return (
-        <div className="flex flex-col items-center justify-center h-64">
-          <p className="text-5xl mb-4">🗺️</p>
-          <p style={{ color: '#b8860b', fontFamily: "'Cinzel', serif", fontSize: '1rem', fontWeight: 600 }}>
-            {activeFilter === "all" ? "No content yet." : `No ${activeFilter} content.`}
-          </p>
-          <p style={{ color: '#7a6e5a', fontFamily: "'Crimson Text', serif", marginTop: '6px', fontSize: '0.95rem' }}>
-            {activeFilter === "all" ? 'Click "Add Content" to get started.' : 'Try adding some or switch to All Content.'}
+        <div className="bento-card flex min-h-[280px] flex-col items-center justify-center p-8 text-center">
+          <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-[22px] bg-[rgba(240,169,120,0.18)] text-[#9d5229]">
+            <LayoutGrid className="h-7 w-7" />
+          </div>
+          <h3 className="bento-heading text-4xl text-slate-900">
+            {isSearchActive ? "No semantic matches found." : activeFilter === "all" ? "Your board is empty." : `No ${activeFilter} items yet.`}
+          </h3>
+          <p className="mt-3 max-w-md text-sm leading-6 text-slate-600">
+            {isSearchActive
+              ? "Try a different concept or phrase."
+              : activeFilter === "all"
+                ? 'Use "Add Content" to create your first block.'
+                : "Switch filters or capture something new into this category."}
           </p>
         </div>
       );
     }
 
     return (
-      <div className="columns-1 sm:columns-2 lg:columns-3 xl:columns-4 gap-5">
-        {filteredContents.map((content) => (
-          <div key={content._id} className="break-inside-avoid mb-5">
-            <Cards {...content} onDelete={handleDelete} />
+      <div className="w-full columns-1 gap-5 sm:columns-2 lg:columns-3 2xl:columns-4">
+        {displayedContents.map((content) => (
+          <div key={content._id} className="mb-5 break-inside-avoid">
+            <Cards {...content} onDelete={handleDelete} onUpdate={handleUpdate} />
           </div>
         ))}
       </div>
@@ -100,47 +117,31 @@ const ContentPage = ({ activeFilter }: ContentPageProps) => {
   };
 
   return (
-    <div>
-      {/* Page Header */}
-      <div className="flex items-center justify-between mb-5">
-        <div>
-          <h2 style={{ fontFamily: "'Cinzel', serif", color: '#b8860b', fontWeight: 700, fontSize: '1.3rem' }}>
-            {FILTER_LABELS[activeFilter]}
-          </h2>
-          {!isLoading && (
-            <p style={{ color: '#7a6e5a', fontFamily: "'Crimson Text', serif", fontSize: '0.9rem', marginTop: '2px' }}>
-              {filteredContents.length} item{filteredContents.length !== 1 ? 's' : ''}
-            </p>
-          )}
+    <div className="page-enter">
+      <section className="mb-5 rounded-[24px] border border-[rgba(125,105,86,0.16)] bg-white/75 p-5 shadow-[0_18px_45px_rgba(99,73,48,0.08)] backdrop-blur-[18px]">
+        <div className="flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
+          <div>
+            <h2 className="text-3xl font-semibold text-slate-900 md:text-4xl">{FILTER_LABELS[activeFilter]}</h2>
+            {!isLoading ? (
+              <p className="mt-1 text-sm text-slate-500">
+                {displayedContents.length} item{displayedContents.length !== 1 ? "s" : ""} in this view
+              </p>
+            ) : null}
+          </div>
+
+          <div className="flex flex-col gap-3 lg:min-w-[520px] lg:flex-row lg:items-center lg:justify-end">
+            <SearchBar onSearch={setSearchResults} onSearchStateChange={setIsSearching} />
+            <button className="bento-button bento-button-secondary" onClick={() => setIsShareModalOpen(true)}>
+              <Share2 className="h-4 w-4" />
+              Share Brain
+            </button>
+            <button className="bento-button bento-button-primary" onClick={() => setIsModalOpen(true)}>
+              <Plus className="h-4 w-4" />
+              Add Content
+            </button>
+          </div>
         </div>
-
-        <div className="flex items-center gap-3">
-          {/* Share Brain — original label */}
-          <button
-            onClick={() => setIsShareModalOpen(true)}
-            className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold transition-all"
-            style={{ backgroundColor: '#fffdf7', border: '1.5px solid #e8d9b0', color: '#7a6e5a', fontFamily: "'Cinzel', serif", fontSize: '0.7rem', letterSpacing: '0.05em', cursor: 'pointer' }}
-            onMouseEnter={(e) => { e.currentTarget.style.borderColor = '#b8860b'; e.currentTarget.style.color = '#b8860b'; }}
-            onMouseLeave={(e) => { e.currentTarget.style.borderColor = '#e8d9b0'; e.currentTarget.style.color = '#7a6e5a'; }}
-          >
-            Share Brain
-          </button>
-
-          {/* Add Content — original label */}
-          <button
-            onClick={() => setIsModalOpen(true)}
-            className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-bold transition-all"
-            style={{ backgroundColor: '#b8860b', color: '#fffdf7', fontFamily: "'Cinzel', serif", fontSize: '0.7rem', letterSpacing: '0.05em', border: 'none', cursor: 'pointer', boxShadow: '0 3px 12px rgba(184,134,11,0.25)' }}
-            onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#d4a017')}
-            onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = '#b8860b')}
-          >
-            + Add Content
-          </button>
-        </div>
-      </div>
-
-      {/* Divider */}
-      <div className="mb-6" style={{ height: '1px', backgroundColor: '#e8d9b0' }} />
+      </section>
 
       {renderContent()}
 
@@ -150,11 +151,7 @@ const ContentPage = ({ activeFilter }: ContentPageProps) => {
         onContentAdded={handleContentAdded}
         defaultType={activeFilter === "all" ? "youtube" : activeFilter}
       />
-      <ShareModal
-        open={isShareModalOpen}
-        onClose={() => setIsShareModalOpen(false)}
-        contents={contents}
-      />
+      <ShareModal open={isShareModalOpen} onClose={() => setIsShareModalOpen(false)} contents={contents} />
     </div>
   );
 };

@@ -8,14 +8,28 @@ import shareRouter from './routes/share'
 import cookieParser from 'cookie-parser';
 import cors from 'cors'
 import tagRouter from './routes/tags'
+import searchRouter from './routes/search'
+import askRouter from './routes/ask'
+import twitterRouter from './routes/twitter'
 dotenv.config()
 
 const app=express()
 
-const frontendURL = "http://localhost:5173"; 
+const allowedOrigins = [
+  "http://localhost:5173",
+  "http://localhost:5174",
+  "http://127.0.0.1:5173",
+  "http://127.0.0.1:5174",
+  process.env.ALLOWED_ORIGIN,
+].filter(Boolean) as string[];
 
 app.use(cors({
-  origin:frontendURL,
+  origin(origin, callback) {
+    if (!origin || allowedOrigins.includes(origin)) {
+      return callback(null, true);
+    }
+    return callback(new Error("CORS blocked for this origin"));
+  },
   credentials:true
 }))
 app.use(express.json())
@@ -26,6 +40,9 @@ app.use('/', authRouter);
 app.use('/',contentRouter)
 app.use('/', tagRouter);
 app.use('/', shareRouter)
+app.use('/', searchRouter)
+app.use('/', askRouter)
+app.use('/', twitterRouter)
 
 
 connectToDb().then(()=>{

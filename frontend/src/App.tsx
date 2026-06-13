@@ -8,8 +8,9 @@ import MainLayout from './pages/MainLayout';
 import type { RootState } from './store/store';
 import { useEffect, useState } from 'react';
 import { setUser } from './store/authSlice';
-import axios from 'axios';
+import api from './utils/api';
 import SharePage from './pages/SharePage';
+import { AskBrain } from './components/AskBrain';
 
 const App = () => {
   const { user } = useSelector((state: RootState) => state.auth);
@@ -19,7 +20,7 @@ const App = () => {
   useEffect(() => {
     const checkAuthStatus = async () => {
       try {
-        const res = await axios.get("http://localhost:4000/profile", { withCredentials: true });
+        const res = await api.get("/profile");
         dispatch(setUser(res.data));
       } catch (error) {
         console.log(error);
@@ -32,8 +33,8 @@ const App = () => {
 
   if (isAuthChecking) {
     return (
-      <div className="min-h-screen flex justify-center items-center bg-gray-50">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+      <div className="min-h-screen flex justify-center items-center" style={{ background: 'hsl(var(--background))' }}>
+        <div className="animate-spin rounded-full h-12 w-12 border-2" style={{ borderColor: 'rgba(15,23,42,0.1)', borderBottomColor: '#0f172a' }}></div>
       </div>
     );
   }
@@ -48,7 +49,7 @@ const App = () => {
 
       <Route
         path="/content"
-        element={user ? <MainLayout>{(filter) => <ContentPage activeFilter={filter} />}</MainLayout> : <Navigate to="/auth" />}
+        element={user ? <MainLayout>{(filter) => filter === "chat" ? <AskBrain /> : <ContentPage activeFilter={filter} />}</MainLayout> : <Navigate to="/auth" />}
       />
 
       <Route path="/share/:shareId" element={<SharePage />} />

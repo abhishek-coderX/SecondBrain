@@ -1,27 +1,22 @@
 import { useState } from "react";
-import { TwitterIcon } from "./icons/Twitter";
-import { YoutubeIcon } from "./icons/Youtube";
-import { ArticleIcon } from "./icons/Article";
-import { Logo } from "./icons/Logo";
-import { Hamburger } from "./icons/Hamburger";
-import { CloseIcon } from "./icons/Close";
-import axios from "axios";
+import { FileText, LayoutGrid, LogOut, MessageSquareText, PanelLeftClose, PanelLeftOpen, Video, Twitter } from "lucide-react";
+import api from "../utils/api";
 import { logoutUser } from "../store/authSlice";
 import { useNavigate } from "react-router-dom";
 import { useDispatch } from "react-redux";
 import type { ContentType } from "../types/type";
 
 interface SideBarProps {
-  activeFilter: ContentType | "all";
-  onFilterChange: (filter: ContentType | "all") => void;
+  activeFilter: ContentType | "all" | "chat";
+  onFilterChange: (filter: ContentType | "all" | "chat") => void;
 }
 
-const NAV_ITEMS = [
-  { label: "All Logs",    filter: "all" as const,           emoji: "🗺️", IconComp: null },
-  { label: "Thoughts",   filter: "thought" as ContentType,  emoji: "💭", IconComp: null },
-  { label: "Twitter",    filter: "twitter" as ContentType,  emoji: null, IconComp: TwitterIcon },
-  { label: "YouTube",    filter: "youtube" as ContentType,  emoji: null, IconComp: YoutubeIcon },
-  { label: "Articles",   filter: "article" as ContentType,  emoji: null, IconComp: ArticleIcon },
+const navItems = [
+  { label: "All", filter: "all" as const, icon: LayoutGrid },
+  { label: "Thoughts", filter: "thought" as ContentType, icon: MessageSquareText },
+  { label: "Twitter", filter: "twitter" as ContentType, icon: Twitter },
+  { label: "YouTube", filter: "youtube" as ContentType, icon: Video },
+  { label: "Articles", filter: "article" as ContentType, icon: FileText },
 ];
 
 export const SideBar = ({ activeFilter, onFilterChange }: SideBarProps) => {
@@ -31,7 +26,7 @@ export const SideBar = ({ activeFilter, onFilterChange }: SideBarProps) => {
 
   const handleLogout = async () => {
     try {
-      await axios.post("http://localhost:4000/logout", {}, { withCredentials: true });
+      await api.post("/logout", {});
     } catch (error) {
       console.error("Logout API failed", error);
     } finally {
@@ -40,101 +35,90 @@ export const SideBar = ({ activeFilter, onFilterChange }: SideBarProps) => {
     }
   };
 
-  const handleFilterClick = (filter: ContentType | "all") => {
+  const handleFilterClick = (filter: ContentType | "all" | "chat") => {
     onFilterChange(filter);
     setOpen(false);
   };
 
+  const sidebarContent = (
+    <div className="bento-card flex h-full flex-col p-4">
+      <div className="px-2 py-2">
+        <p className="text-xl font-semibold text-slate-900">SecondBrain</p>
+      </div>
+
+      <nav className="mt-4 flex-1 space-y-2">
+        {navItems.map(({ label, filter, icon: Icon }) => {
+          const isActive = activeFilter === filter;
+
+          return (
+            <button
+              key={filter}
+              onClick={() => handleFilterClick(filter)}
+              className={`flex w-full items-center gap-3 rounded-[16px] px-4 py-3 text-left text-sm font-medium ${
+                isActive
+                  ? "bg-[rgba(240,169,120,0.18)] text-slate-900 ring-1 ring-[rgba(223,133,82,0.22)]"
+                  : "text-slate-600"
+              }`}
+            >
+              <div className={`flex h-8 w-8 items-center justify-center rounded-xl ${isActive ? "bg-white/80 text-[#9d5229]" : "bg-[rgba(128,161,193,0.1)] text-[#375e7b]"}`}>
+                <Icon className="h-4 w-4" />
+              </div>
+              <span>{label}</span>
+            </button>
+          );
+        })}
+      </nav>
+
+      <button
+        onClick={() => handleFilterClick("chat")}
+        className={`mt-2 flex w-full items-center gap-3 rounded-[16px] px-4 py-3 text-left ${
+          activeFilter === "chat"
+            ? "bg-slate-900 text-white"
+            : "bg-[rgba(128,161,193,0.1)] text-slate-800"
+        }`}
+      >
+        <div className={`flex h-8 w-8 items-center justify-center rounded-xl ${activeFilter === "chat" ? "bg-white/12 text-orange-200" : "bg-white/70 text-[#355a77]"}`}>
+          <MessageSquareText className="h-4 w-4" />
+        </div>
+        <div>
+          <p className="text-sm font-semibold">Ask AI</p>
+        </div>
+      </button>
+
+      <button
+        onClick={handleLogout}
+        className="mt-4 flex items-center justify-center gap-2 rounded-[18px] border border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold text-red-600"
+      >
+        <LogOut className="h-4 w-4" />
+        Sign Out
+      </button>
+    </div>
+  );
+
   return (
     <>
-      {/* Mobile top bar */}
-      <div className="flex items-center justify-between p-4 md:hidden"
-        style={{ backgroundColor: '#fffdf7', borderBottom: '2px solid #e8d9b0' }}>
-        <div className="flex items-center gap-2">
-          <Logo size="md" />
-          <span style={{ fontFamily: "'Cinzel', serif", color: '#b8860b', fontWeight: 700 }}>SecondBrain</span>
-        </div>
-        <button onClick={() => setOpen(!open)} style={{ color: '#b8860b' }}>
-          {open ? <CloseIcon size="md" /> : <Hamburger size="md" />}
+      <div className="md:hidden">
+        <button
+          onClick={() => setOpen((prev) => !prev)}
+          className="bento-card flex w-full items-center justify-between px-4 py-3"
+        >
+          <div>
+            <p className="text-lg font-semibold text-slate-900">SecondBrain</p>
+          </div>
+          {open ? <PanelLeftClose className="h-5 w-5 text-slate-700" /> : <PanelLeftOpen className="h-5 w-5 text-slate-700" />}
         </button>
       </div>
 
-      {/* Sidebar panel */}
-      <div className={`
-          fixed inset-y-0 left-0 z-40 w-64 transform
-          transition-transform duration-300 ease-in-out
-          md:translate-x-0 md:static md:shadow-none
-          ${open ? "translate-x-0" : "-translate-x-full"}
-          flex flex-col
-        `}
-        style={{ backgroundColor: '#fffdf7', borderRight: '2px solid #e8d9b0', boxShadow: '4px 0 20px rgba(180,140,20,0.08)' }}>
-
-        {/* Logo header */}
-        <div className="flex items-center gap-3 p-5" style={{ borderBottom: '1px solid #e8d9b0' }}>
-          <Logo size="lg" />
-          <div>
-            <h1 style={{ fontFamily: "'Cinzel', serif", color: '#b8860b', fontWeight: 700, fontSize: '1.05rem', lineHeight: 1.2 }}>
-              SecondBrain
-            </h1>
-            <p style={{ color: '#b8a070', fontSize: '0.65rem', fontFamily: "'Cinzel', serif", letterSpacing: '0.12em' }}>
-              YOUR LOG POSE
-            </p>
-          </div>
-        </div>
-
-        {/* Nav label */}
-        <div className="px-4 pt-5 pb-2">
-          <p style={{ color: '#b8a070', fontSize: '0.6rem', fontFamily: "'Cinzel', serif", letterSpacing: '0.18em', textTransform: 'uppercase' }}>
-            Navigation
-          </p>
-        </div>
-
-        {/* Nav items */}
-        <nav className="flex-1 px-3 space-y-1 overflow-y-auto">
-          {NAV_ITEMS.map(({ label, filter, emoji, IconComp }) => {
-            const isActive = activeFilter === filter;
-            return (
-              <button key={filter} onClick={() => handleFilterClick(filter)}
-                className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm transition-all duration-150 text-left"
-                style={{
-                  backgroundColor: isActive ? '#d4a01718' : 'transparent',
-                  border: isActive ? '1.5px solid #d4a01750' : '1.5px solid transparent',
-                  color: isActive ? '#b8860b' : '#7a6e5a',
-                  fontFamily: "'Crimson Text', serif",
-                  fontSize: '1.05rem',
-                  cursor: 'pointer',
-                }}
-                onMouseEnter={(e) => { if (!isActive) { e.currentTarget.style.backgroundColor = '#d4a0170a'; e.currentTarget.style.color = '#1a2840'; } }}
-                onMouseLeave={(e) => { if (!isActive) { e.currentTarget.style.backgroundColor = 'transparent'; e.currentTarget.style.color = '#7a6e5a'; } }}
-              >
-                {emoji && <span className="text-base">{emoji}</span>}
-                {IconComp && <IconComp size="sm" />}
-                <span>{label}</span>
-                {isActive && <span className="ml-auto w-1.5 h-1.5 rounded-full" style={{ backgroundColor: '#b8860b' }} />}
-              </button>
-            );
-          })}
-        </nav>
-
-        {/* Divider */}
-        <div className="mx-4 my-3" style={{ height: '1px', backgroundColor: '#e8d9b0' }} />
-
-        {/* Logout */}
-        <div className="p-4">
-          <button onClick={handleLogout}
-            className="w-full py-2.5 rounded-xl font-bold tracking-wide transition-all"
-            style={{ backgroundColor: '#fff5f5', border: '1.5px solid #fca5a5', color: '#b91c1c', fontFamily: "'Cinzel', serif", fontSize: '0.7rem', letterSpacing: '0.08em', cursor: 'pointer' }}
-            onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#fee2e2')}
-            onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = '#fff5f5')}>
-            🏴‍☠️ Abandon Ship
-          </button>
-        </div>
+      <div className="hidden md:flex md:w-64 md:flex-shrink-0 md:p-4">
+        <div className="h-full w-full">{sidebarContent}</div>
       </div>
 
-      {/* Mobile overlay */}
-      {open && (
-        <div className="fixed inset-0 bg-black/40 z-30 md:hidden" onClick={() => setOpen(false)} />
-      )}
+      {open ? (
+        <>
+          <div className="fixed inset-0 z-40 bg-black/30 md:hidden" onClick={() => setOpen(false)} />
+          <div className="fixed inset-y-3 left-3 z-50 w-[calc(100%-24px)] max-w-[320px] md:hidden">{sidebarContent}</div>
+        </>
+      ) : null}
     </>
   );
 };

@@ -1,52 +1,402 @@
-import React, { useState } from "react";
-import type { Content } from "../types/type";
-import { ExternalLink, Share, Trash2, AlertTriangle } from "lucide-react";
-import { Tweet } from "react-tweet";
+import { useState, useEffect } from "react";
+import ReactDOM from "react-dom";
+import toast from "react-hot-toast";
+import type { Content, ContentType } from "../types/type";
+import {
+  ExternalLink,
+  Pencil,
+  Trash2,
+  AlertTriangle,
+  Quote,
+  FileText,
+  Video,
+  Twitter,
+  X,
+} from "lucide-react";
+import api from "../utils/api";
 
-interface CardsProps extends Content {
-  onDelete?: (id: string) => void;
-}
+// ─── X/Twitter SVG ────────────────────────────────────────────────────────────
 
-const TYPE_CONFIG = {
+const XLogo = () => (
+  <svg viewBox="0 0 24 24" aria-hidden="true" width="16" height="16" fill="currentColor">
+    <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-4.714-6.231-5.401 6.231H2.744l7.73-8.835L1.254 2.25H8.08l4.259 5.631 5.905-5.631Zm-1.161 17.52h1.833L7.084 4.126H5.117z" />
+  </svg>
+);
+
+// ─── Constants ─────────────────────────────────────────────────────────────────
+
+const titleColors: Record<ContentType, string> = {
+  article: "#16a34a",
+  youtube: "#dc2626",
+  twitter: "#2563eb",
+  thought: "#9333ea",
+};
+
+const typeConfig = {
   youtube: {
-    label: "📺 Video Log",
-    headerBg: "#fff5f5",
-    headerBorder: "#fecaca",
-    accentColor: "#dc2626",
-    accentDim: "rgba(220,38,38,0.08)",
-    cardBorder: "#fecaca",
+    label: "Video",
+    icon: Video,
+    accentClass: "bg-[rgba(220,38,38,0.08)] text-[#b91c1c] border-[rgba(220,38,38,0.16)]",
   },
   twitter: {
-    label: "🐦 Twitter Post",
-    headerBg: "#eff6ff",
-    headerBorder: "#bfdbfe",
-    accentColor: "#2563eb",
-    accentDim: "rgba(37,99,235,0.08)",
-    cardBorder: "#bfdbfe",
+    label: "Twitter",
+    icon: Twitter,
+    accentClass: "bg-[rgba(29,155,240,0.08)] text-[#0369a1] border-[rgba(29,155,240,0.16)]",
   },
   article: {
-    label: "📜 Article",
-    headerBg: "#fffbf0",
-    headerBorder: "#e8d9b0",
-    accentColor: "#b8860b",
-    accentDim: "rgba(184,134,11,0.08)",
-    cardBorder: "#e8d9b0",
+    label: "Article",
+    icon: FileText,
+    accentClass: "bg-[rgba(22,163,74,0.08)] text-[#166534] border-[rgba(22,163,74,0.16)]",
   },
   thought: {
-    label: "💭 Thought",
-    headerBg: "#fffbeb",
-    headerBorder: "#fde68a",
-    accentColor: "#d97706",
-    accentDim: "rgba(217,119,6,0.08)",
-    cardBorder: "#fde68a",
+    label: "Thought",
+    icon: Quote,
+    accentClass: "bg-[rgba(234,88,12,0.08)] text-[#c2410c] border-[rgba(234,88,12,0.16)]",
   },
 };
 
-export const Cards = ({ onDelete, ...props }: CardsProps) => {
+
+// ─── Shared portal backdrop styles ────────────────────────────────────────────
+
+const backdropStyle: React.CSSProperties = {
+  position: "fixed",
+  inset: 0,
+  background: "rgba(0,0,0,0.5)",
+  zIndex: 50,
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
+};
+
+const modalCardStyle: React.CSSProperties = {
+  position: "relative",
+  background: "white",
+  borderRadius: "16px",
+  padding: "24px",
+  width: "90%",
+  maxWidth: "480px",
+  maxHeight: "90vh",
+  overflowY: "auto",
+};
+
+// ─── Delete Modal ─────────────────────────────────────────────────────────────
+
+interface DeleteModalProps {
+  title: string;
+  onCancel: () => void;
+  onConfirm: () => void;
+}
+
+const DeleteModal = ({ title, onCancel, onConfirm }: DeleteModalProps) =>
+  ReactDOM.createPortal(
+    <div style={backdropStyle} onClick={onCancel}>
+      <div style={modalCardStyle} onClick={(e) => e.stopPropagation()}>
+        {/* Header */}
+        <div style={{ display: "flex", alignItems: "flex-start", gap: "12px", marginBottom: "16px" }}>
+          <div
+            style={{
+              flexShrink: 0,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              width: "44px",
+              height: "44px",
+              borderRadius: "12px",
+              background: "#fef2f2",
+              color: "#dc2626",
+            }}
+          >
+            <AlertTriangle size={20} />
+          </div>
+          <div>
+            <h3 style={{ margin: 0, fontSize: "1.05rem", fontWeight: 600, color: "#0f172a" }}>
+              Delete this item?
+            </h3>
+            <p style={{ margin: "4px 0 0", fontSize: "0.85rem", color: "#64748b" }}>
+              This cannot be undone.
+            </p>
+          </div>
+        </div>
+
+        {/* Item title preview */}
+        <div
+          style={{
+            background: "rgba(17,24,39,0.04)",
+            borderRadius: "12px",
+            padding: "12px 16px",
+            fontSize: "0.875rem",
+            color: "#334155",
+            marginBottom: "20px",
+          }}
+        >
+          {title}
+        </div>
+
+        {/* Actions */}
+        <div style={{ display: "flex", gap: "12px" }}>
+          <button
+            onClick={onCancel}
+            style={{
+              flex: 1,
+              padding: "10px 16px",
+              borderRadius: "10px",
+              border: "1px solid #e2e8f0",
+              background: "white",
+              fontSize: "0.875rem",
+              fontWeight: 600,
+              color: "#475569",
+              cursor: "pointer",
+            }}
+          >
+            Cancel
+          </button>
+          <button
+            onClick={onConfirm}
+            style={{
+              flex: 1,
+              padding: "10px 16px",
+              borderRadius: "10px",
+              border: "1px solid #fecaca",
+              background: "#fef2f2",
+              fontSize: "0.875rem",
+              fontWeight: 600,
+              color: "#dc2626",
+              cursor: "pointer",
+            }}
+          >
+            Delete
+          </button>
+        </div>
+      </div>
+    </div>,
+    document.body
+  );
+
+// ─── Edit Modal ───────────────────────────────────────────────────────────────
+
+interface EditModalProps {
+  content: Content;
+  onClose: () => void;
+  onSave: (updated: Content) => void;
+}
+
+const inputStyle: React.CSSProperties = {
+  width: "100%",
+  boxSizing: "border-box",
+  padding: "9px 12px",
+  borderRadius: "10px",
+  border: "1px solid #e2e8f0",
+  fontSize: "0.875rem",
+  color: "#0f172a",
+  background: "#f8fafc",
+  outline: "none",
+  marginTop: "6px",
+};
+
+const labelStyle: React.CSSProperties = {
+  fontSize: "0.75rem",
+  fontWeight: 600,
+  letterSpacing: "0.05em",
+  textTransform: "uppercase",
+  color: "#64748b",
+};
+
+const EditModal = ({ content, onClose, onSave }: EditModalProps) => {
+  const [title, setTitle] = useState(content.title);
+  const [description, setDescription] = useState(content.description ?? "");
+  const [link, setLink] = useState(content.link ?? "");
+  const [tagsRaw, setTagsRaw] = useState(content.tags.map((t) => t.name).join(", "));
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  // type is read-only — stored from props, never mutated
+  const currentType = content.type;
+  const cfg = typeConfig[currentType] ?? typeConfig.article;
+  const TypeIcon = cfg.icon;
+
+  const handleSave = async () => {
+    if (!title.trim()) {
+      setError("Title is required.");
+      return;
+    }
+    setError(null);
+    setSaving(true);
+    try {
+      const payload: Record<string, unknown> = {
+        title: title.trim(),
+        description: description.trim() || undefined,
+        tags: tagsRaw
+          .split(",")
+          .map((t) => t.trim())
+          .filter(Boolean),
+      };
+      // Only include link for non-thought types
+      if (currentType !== "thought") {
+        payload.link = link.trim() || undefined;
+      }
+
+      const res = await api.put(`/content/${content._id}`, payload, { withCredentials: true });
+      const updated: Content = { ...content, ...res.data };
+      toast.success("Updated successfully");
+      onSave(updated);
+      onClose();
+    } catch (err: unknown) {
+      const msg =
+        (err as { response?: { data?: { message?: string } } })?.response?.data?.message ??
+        "Failed to update. Please try again.";
+      setError(msg);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return ReactDOM.createPortal(
+    <div style={backdropStyle} onClick={onClose}>
+      <div style={modalCardStyle} onClick={(e) => e.stopPropagation()}>
+
+        {/* Header */}
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "20px" }}>
+          <h3 style={{ margin: 0, fontSize: "1.05rem", fontWeight: 600, color: "#0f172a" }}>
+            Edit Content
+          </h3>
+          <button
+            onClick={onClose}
+            style={{ display: "flex", alignItems: "center", justifyContent: "center", width: "32px", height: "32px", borderRadius: "50%", border: "none", background: "transparent", cursor: "pointer", color: "#94a3b8" }}
+          >
+            <X size={16} />
+          </button>
+        </div>
+
+        {/* Inline error */}
+        {error ? (
+          <div style={{ marginBottom: "16px", padding: "10px 14px", borderRadius: "10px", background: "#fef2f2", border: "1px solid #fecaca", fontSize: "0.85rem", color: "#dc2626" }}>
+            {error}
+          </div>
+        ) : null}
+
+        {/* Fields */}
+        <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
+
+          {/* Type — read-only badge */}
+          <div>
+            <label style={labelStyle}>Type</label>
+            <div style={{ marginTop: "8px" }}>
+              <span
+                style={{ display: "inline-flex", alignItems: "center", gap: "6px", padding: "4px 12px", borderRadius: "999px", border: "1px solid", fontSize: "0.75rem", fontWeight: 600 }}
+                className={cfg.accentClass}
+              >
+                <TypeIcon size={12} />
+                {cfg.label}
+              </span>
+            </div>
+          </div>
+
+          {/* Title */}
+          <div>
+            <label style={labelStyle}>Title</label>
+            <input
+              type="text"
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              placeholder="Title"
+              style={inputStyle}
+            />
+          </div>
+
+          {/* Description */}
+          <div>
+            <label style={labelStyle}>Description</label>
+            <textarea
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              placeholder="Optional description"
+              rows={3}
+              style={{ ...inputStyle, resize: "vertical", minHeight: "80px" }}
+            />
+          </div>
+
+          {/* Link — hidden for thoughts */}
+          {currentType !== "thought" ? (
+            <div>
+              <label style={labelStyle}>Link</label>
+              <input
+                type="url"
+                value={link}
+                onChange={(e) => setLink(e.target.value)}
+                placeholder="https://..."
+                style={inputStyle}
+              />
+            </div>
+          ) : null}
+
+          {/* Tags */}
+          <div>
+            <label style={labelStyle}>Tags (comma-separated)</label>
+            <input
+              type="text"
+              value={tagsRaw}
+              onChange={(e) => setTagsRaw(e.target.value)}
+              placeholder="tag1, tag2, tag3"
+              style={inputStyle}
+            />
+          </div>
+
+        </div>
+
+        {/* Actions */}
+        <div style={{ display: "flex", gap: "12px", marginTop: "24px" }}>
+          <button
+            onClick={onClose}
+            style={{ flex: 1, padding: "10px 16px", borderRadius: "10px", border: "1px solid #e2e8f0", background: "white", fontSize: "0.875rem", fontWeight: 600, color: "#475569", cursor: "pointer" }}
+          >
+            Cancel
+          </button>
+          <button
+            onClick={handleSave}
+            disabled={saving}
+            style={{ flex: 1, padding: "10px 16px", borderRadius: "10px", border: "none", background: saving ? "#94a3b8" : "#0f172a", fontSize: "0.875rem", fontWeight: 600, color: "white", cursor: saving ? "not-allowed" : "pointer", transition: "background 0.15s" }}
+          >
+            {saving ? "Saving…" : "Save Changes"}
+          </button>
+        </div>
+      </div>
+    </div>,
+    document.body
+  );
+};
+
+// ─── Cards ────────────────────────────────────────────────────────────────────
+
+interface CardsProps extends Content {
+  onDelete?: (id: string) => void;
+  onUpdate?: (updated: Content) => void;
+}
+
+export const Cards = ({ onDelete, onUpdate, ...props }: CardsProps) => {
   const { _id, title, link, type, description, tags = [], createdAt, thumbnail, userId, duration } = props;
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [showEditModal, setShowEditModal] = useState(false);
 
-  const cfg = TYPE_CONFIG[type] ?? TYPE_CONFIG.article;
+  // Article OG image state
+  const [ogImage, setOgImage] = useState<string | null>(null);
+  const [ogLoading, setOgLoading] = useState(false);
+
+  useEffect(() => {
+    if (type !== "article" || !link) return;
+    if (thumbnail) { setOgImage(thumbnail); return; }
+    setOgLoading(true);
+    fetch(`https://api.microlink.io?url=${encodeURIComponent(link)}`)
+      .then((r) => r.json())
+      .then((data) => {
+        const imageUrl = data?.data?.image?.url || data?.data?.screenshot?.url;
+        if (imageUrl) setOgImage(imageUrl);
+      })
+      .catch(() => null)
+      .finally(() => setOgLoading(false));
+  }, [link, type, thumbnail]);
+
+  const cfg = typeConfig[type] ?? typeConfig.article;
+  const TypeIcon = cfg.icon;
 
   const getYoutubeId = () => {
     if (link?.includes("youtube.com/watch?v=")) return link.split("v=")[1]?.split("&")[0];
@@ -57,184 +407,256 @@ export const Cards = ({ onDelete, ...props }: CardsProps) => {
   const renderEmbed = () => {
     if (type === "thought") {
       return description ? (
-        <p style={{ color: '#4a3f28', fontFamily: "'Crimson Text', serif", fontSize: '1.05rem', lineHeight: 1.65, whiteSpace: 'pre-wrap' }}>
+        <p
+          className="whitespace-pre-wrap text-sm leading-7 text-slate-700"
+          title={description}
+          style={{ display: "-webkit-box", WebkitLineClamp: 3, WebkitBoxOrient: "vertical", overflow: "hidden" }}
+        >
           {description}
         </p>
       ) : null;
     }
+
     if (type === "youtube") {
       const vid = getYoutubeId();
-      if (vid) return (
-        <div className="relative w-full">
-          <iframe className="w-full h-48 rounded-lg" src={`https://www.youtube.com/embed/${vid}`}
-            title="YouTube" frameBorder="0" allowFullScreen
-            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" />
-          {duration && (
-            <span className="absolute bottom-2 right-2 px-2 py-0.5 rounded text-xs"
-              style={{ backgroundColor: 'rgba(0,0,0,0.75)', color: '#fff' }}>{duration}</span>
-          )}
-        </div>
-      );
-    }
-    if (type === "twitter") {
-      const tweetId = link?.split("status/")[1]?.split("?")[0];
-      if (tweetId) return <div className="w-full"><Tweet id={tweetId} /></div>;
-      return (
-        <div className="w-full h-24 rounded-lg flex items-center justify-center"
-          style={{ backgroundColor: '#eff6ff', border: '2px dashed #bfdbfe' }}>
-          <p style={{ color: '#93c5fd', fontSize: '0.8rem' }}>Click ↗ to view on Twitter</p>
-        </div>
-      );
-    }
-    if (type === "article") {
-      return thumbnail ? (
-        <img src={thumbnail} alt={title} className="w-full h-auto rounded-lg object-cover"
-          onError={(e) => { e.currentTarget.style.display = 'none'; }} />
-      ) : (
-        <div className="w-full h-24 rounded-lg flex items-center justify-center"
-          style={{ backgroundColor: '#faf8f2', border: '2px dashed #e8d9b0' }}>
-          <span style={{ color: '#b8a070', fontSize: '1.4rem' }}>📜</span>
-        </div>
-      );
-    }
-    return null;
-  };
-
-  const handleShare = async () => {
-    if (link) {
-      if (navigator.share) {
-        try { await navigator.share({ title, url: link }); }
-        catch { navigator.clipboard.writeText(link); }
-      } else {
-        navigator.clipboard.writeText(link);
+      if (vid) {
+        return (
+          <div className="relative">
+            <iframe
+              className="h-52 w-full rounded-lg"
+              src={`https://www.youtube.com/embed/${vid}`}
+              title="YouTube"
+              frameBorder="0"
+              allowFullScreen
+              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+            />
+            {duration ? (
+              <span className="absolute bottom-3 right-3 rounded-full bg-black/70 px-2.5 py-1 text-xs text-white">
+                {duration}
+              </span>
+            ) : null}
+          </div>
+        );
       }
     }
+
+    if (type === "twitter") {
+      const urlUsername = link?.match(/(?:twitter\.com|x\.com)\/([^/]+)\/status/)?.[1];
+      return (
+        <div
+          style={{
+            background: "#f7f9fa",
+            border: "1px solid #e1e8ed",
+            borderRadius: "8px",
+            padding: "16px",
+          }}
+        >
+          {description ? (
+            <p
+              title={description}
+              style={{
+                fontSize: "0.9rem",
+                lineHeight: "1.6",
+                color: "#14171a",
+                margin: 0,
+                whiteSpace: "pre-wrap",
+                display: "-webkit-box",
+                WebkitLineClamp: 3,
+                WebkitBoxOrient: "vertical",
+                overflow: "hidden",
+              }}
+            >
+              {description}
+            </p>
+          ) : (
+            <p style={{ fontSize: "0.85rem", color: "#657786", margin: 0, fontStyle: "italic" }}>
+              No preview available.
+            </p>
+          )}
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              marginTop: "12px",
+              paddingTop: "10px",
+              borderTop: "1px solid #e1e8ed",
+            }}
+          >
+            <div style={{ display: "flex", alignItems: "center", gap: "6px", color: "#1da1f2" }}>
+              <XLogo />
+              {urlUsername ? (
+                <span style={{ fontSize: "0.8rem", fontWeight: 600, color: "#1da1f2" }}>
+                  @{urlUsername}
+                </span>
+              ) : null}
+            </div>
+            {link ? (
+              <a
+                href={link}
+                target="_blank"
+                rel="noopener noreferrer"
+                style={{
+                  fontSize: "0.75rem",
+                  fontWeight: 600,
+                  color: "#1da1f2",
+                  textDecoration: "none",
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: "4px",
+                }}
+              >
+                View on X ↗
+              </a>
+            ) : null}
+          </div>
+        </div>
+      );
+    }
+
+    // article image is rendered directly in the card JSX via ogImage state
+
+    return null;
   };
 
   return (
     <>
-      {/* Delete Dialog */}
-      {showDeleteDialog && (
-        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4"
-          onClick={() => setShowDeleteDialog(false)}>
-          <div className="w-full max-w-sm rounded-2xl p-6"
-            style={{ backgroundColor: '#fff', border: '2px solid #fecaca', boxShadow: '0 20px 50px rgba(0,0,0,0.15)' }}
-            onClick={(e) => e.stopPropagation()}>
-            <div className="flex items-center gap-3 mb-4">
-              <div className="w-10 h-10 rounded-full flex items-center justify-center"
-                style={{ backgroundColor: '#fee2e2', border: '1.5px solid #fca5a5' }}>
-                <AlertTriangle className="w-5 h-5" style={{ color: '#dc2626' }} />
-              </div>
-              <div>
-                <h3 style={{ fontFamily: "'Cinzel', serif", color: '#dc2626', fontWeight: 700, fontSize: '0.95rem' }}>
-                  Walk the Plank?
-                </h3>
-                <p style={{ color: '#7a6e5a', fontSize: '0.82rem', fontFamily: "'Crimson Text', serif" }}>
-                  This item will be deleted permanently.
-                </p>
-              </div>
-            </div>
-            <p className="mb-5 px-3 py-2 rounded-lg line-clamp-2"
-              style={{ backgroundColor: '#faf8f2', border: '1px solid #e8d9b0', color: '#4a3f28', fontFamily: "'Crimson Text', serif", fontSize: '0.95rem' }}>
-              "{title}"
-            </p>
-            <div className="flex gap-3">
-              <button onClick={() => setShowDeleteDialog(false)}
-                className="flex-1 py-2.5 rounded-xl font-semibold transition-colors"
-                style={{ border: '1.5px solid #e8d9b0', color: '#7a6e5a', fontFamily: "'Cinzel', serif", backgroundColor: 'transparent', fontSize: '0.7rem', letterSpacing: '0.05em', cursor: 'pointer' }}
-                onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#faf8f2')}
-                onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'transparent')}>
-                Cancel
-              </button>
-              <button onClick={() => { onDelete?.(_id); setShowDeleteDialog(false); }}
-                className="flex-1 py-2.5 rounded-xl font-semibold transition-colors"
-                style={{ backgroundColor: '#dc2626', color: '#fff', fontFamily: "'Cinzel', serif", border: 'none', fontSize: '0.7rem', letterSpacing: '0.05em', cursor: 'pointer' }}
-                onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#b91c1c')}
-                onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = '#dc2626')}>
-                💀 Delete
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      {/* Delete modal — portal */}
+      {showDeleteDialog ? (
+        <DeleteModal
+          title={title}
+          onCancel={() => setShowDeleteDialog(false)}
+          onConfirm={() => {
+            onDelete?.(_id);
+            setShowDeleteDialog(false);
+            toast.success("Deleted successfully");
+          }}
+        />
+      ) : null}
 
-      {/* Card */}
-      <div className="w-full rounded-xl overflow-hidden transition-all duration-200"
-        style={{ backgroundColor: '#ffffff', border: `2px solid ${cfg.cardBorder}`, boxShadow: '0 2px 12px rgba(0,0,0,0.06)' }}
-        onMouseEnter={(e) => { e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.boxShadow = `0 8px 24px rgba(0,0,0,0.1), 0 0 0 1px ${cfg.accentColor}30`; }}
-        onMouseLeave={(e) => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = '0 2px 12px rgba(0,0,0,0.06)'; }}>
+      {/* Edit modal — portal */}
+      {showEditModal ? (
+        <EditModal
+          content={{ _id, title, link, type, description, tags, createdAt, thumbnail, userId, duration } as Content}
+          onClose={() => setShowEditModal(false)}
+          onSave={(updated) => onUpdate?.(updated)}
+        />
+      ) : null}
 
-        {/* Header */}
-        <div className="flex items-center justify-between px-3 py-2.5"
-          style={{ backgroundColor: cfg.headerBg, borderBottom: `1px solid ${cfg.headerBorder}` }}>
-          <span style={{ fontSize: '0.68rem', fontFamily: "'Cinzel', serif", color: cfg.accentColor, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase' }}>
+      <article className="bento-card bento-shadow-hover overflow-hidden p-5">
+        <div className="flex items-start justify-between gap-3">
+          <div className={`inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs font-semibold ${cfg.accentClass}`}>
+            <TypeIcon className="h-3.5 w-3.5" />
             {cfg.label}
-          </span>
-          <div className="flex gap-1">
-            {link && (
-              <>
-                <button onClick={() => window.open(link, '_blank', 'noopener,noreferrer')}
-                  className="p-1 rounded transition-colors" title="Open original"
-                  style={{ color: '#b8a070' }}
-                  onMouseEnter={(e) => (e.currentTarget.style.color = '#1a2840')}
-                  onMouseLeave={(e) => (e.currentTarget.style.color = '#b8a070')}>
-                  <ExternalLink className="w-3.5 h-3.5" />
-                </button>
-                <button onClick={handleShare} className="p-1 rounded transition-colors" title="Copy link"
-                  style={{ color: '#b8a070' }}
-                  onMouseEnter={(e) => (e.currentTarget.style.color = '#1a2840')}
-                  onMouseLeave={(e) => (e.currentTarget.style.color = '#b8a070')}>
-                  <Share className="w-3.5 h-3.5" />
-                </button>
-              </>
-            )}
-            {onDelete && (
-              <button onClick={() => setShowDeleteDialog(true)}
-                className="p-1 rounded transition-colors" title="Delete"
-                style={{ color: '#b8a070' }}
-                onMouseEnter={(e) => (e.currentTarget.style.color = '#dc2626')}
-                onMouseLeave={(e) => (e.currentTarget.style.color = '#b8a070')}>
-                <Trash2 className="w-3.5 h-3.5" />
+          </div>
+
+          <div className="flex items-center gap-1">
+            {/* Edit */}
+            <button
+              onClick={() => setShowEditModal(true)}
+              className="flex h-9 w-9 items-center justify-center rounded-full text-slate-500 hover:bg-black/5 hover:text-slate-900"
+              title="Edit"
+            >
+              <Pencil className="h-4 w-4" />
+            </button>
+
+            {/* Open original */}
+            {link ? (
+              <button
+                onClick={() => window.open(link, "_blank", "noopener,noreferrer")}
+                className="flex h-9 w-9 items-center justify-center rounded-full text-slate-500 hover:bg-black/5 hover:text-slate-900"
+                title="Open original"
+              >
+                <ExternalLink className="h-4 w-4" />
               </button>
-            )}
+            ) : null}
+
+            {/* Delete */}
+            {onDelete ? (
+              <button
+                onClick={() => setShowDeleteDialog(true)}
+                className="flex h-9 w-9 items-center justify-center rounded-full text-slate-500 hover:bg-red-50 hover:text-red-600"
+                title="Delete"
+              >
+                <Trash2 className="h-4 w-4" />
+              </button>
+            ) : null}
           </div>
         </div>
 
-        {/* Body */}
-        <div className="p-4">
-          <h1 className="font-bold mb-2 line-clamp-2 leading-snug"
-            style={{ color: '#1a2840', fontFamily: "'Cinzel', serif", fontSize: '0.88rem' }}>
+        <div className="mt-4">
+          <h3 className="text-lg font-semibold leading-7" style={{ color: titleColors[type] }}>
             {title}
-          </h1>
-          {userId?.username && (
-            <p className="text-xs mb-3" style={{ color: '#b8a070', fontFamily: "'Crimson Text', serif" }}>
-              ⚓ by {userId.username}
-            </p>
-          )}
-          {type !== "thought" && description && (
-            <p className="text-sm mb-3 line-clamp-3 leading-relaxed"
-              style={{ color: '#7a6e5a', fontFamily: "'Crimson Text', serif", fontSize: '0.95rem' }}>
-              {description}
-            </p>
-          )}
-          <div className="mb-3">{renderEmbed()}</div>
-          {tags.length > 0 && (
-            <div className="flex flex-wrap gap-1.5 mb-3">
-              {tags.map((tag, i) => (
-                <span key={i} className="px-2.5 py-0.5 rounded-full text-xs font-medium"
-                  style={{ backgroundColor: cfg.accentDim, color: cfg.accentColor, border: `1px solid ${cfg.accentColor}30`, fontFamily: "'Crimson Text', serif", fontSize: '0.8rem' }}>
-                  #{tag.name}
-                </span>
-              ))}
-            </div>
-          )}
-          {createdAt && (
-            <p className="text-xs" style={{ color: '#c8b888', fontFamily: "'Crimson Text', serif" }}>
-              {new Date(createdAt).toLocaleDateString("en-US", { year: "numeric", month: "short", day: "numeric" })}
-            </p>
-          )}
+          </h3>
+          {userId?.username ? (
+            <p className="mt-1 text-xs uppercase tracking-[0.16em] text-slate-500">by {userId.username}</p>
+          ) : null}
         </div>
-      </div>
+
+        {/* YOUTUBE — iframe embed then description */}
+        {type === "youtube" ? (
+          <div className="mt-4">{renderEmbed()}</div>
+        ) : null}
+
+        {/* ARTICLE — OG image via microlink, then description */}
+        {type === "article" ? (
+          <div className="mt-4">
+            {ogLoading ? (
+              <div style={{ width: "100%", height: "180px", background: "linear-gradient(90deg, #f0fdf4 25%, #dcfce7 50%, #f0fdf4 75%)", backgroundSize: "200% 100%", animation: "shimmer 1.5s infinite", borderRadius: "8px" }} />
+            ) : ogImage ? (
+              <img
+                src={ogImage}
+                alt={title}
+                style={{ width: "100%", height: "180px", objectFit: "cover", borderRadius: "8px", display: "block" }}
+                onError={() => setOgImage(null)}
+              />
+            ) : (
+              <div style={{ width: "100%", height: "120px", background: "#f0fdf4", border: "1px dashed #16a34a", borderRadius: "8px", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                <span style={{ color: "#16a34a", fontSize: "0.85rem" }}>Article preview unavailable</span>
+              </div>
+            )}
+          </div>
+        ) : null}
+
+        {/* THOUGHT + TWITTER — embed is the content */}
+        {type === "thought" || type === "twitter" ? (
+          <div className="mt-4">{renderEmbed()}</div>
+        ) : null}
+
+        {/* Description — only for youtube + article, not twitter (already in tweet box) or thought (already in embed) */}
+        {(type === "youtube" || type === "article") && description ? (
+          <p
+            className="mt-3 text-sm leading-6 text-slate-600"
+            title={description}
+            style={{ display: "-webkit-box", WebkitLineClamp: 3, WebkitBoxOrient: "vertical", overflow: "hidden" }}
+          >
+            {description}
+          </p>
+        ) : null}
+
+        {tags.length > 0 ? (
+          <div className="mt-4 flex flex-wrap gap-2">
+            {tags.map((tag, i) => (
+              <span
+                key={i}
+                className="rounded-full border border-[rgba(125,105,86,0.14)] bg-white/70 px-3 py-1 text-xs font-medium text-slate-600"
+              >
+                #{tag.name}
+              </span>
+            ))}
+          </div>
+        ) : null}
+
+        {createdAt ? (
+          <p className="mt-4 text-xs text-slate-500">
+            {new Date(createdAt).toLocaleDateString("en-US", {
+              year: "numeric",
+              month: "short",
+              day: "numeric",
+            })}
+          </p>
+        ) : null}
+      </article>
     </>
   );
 };

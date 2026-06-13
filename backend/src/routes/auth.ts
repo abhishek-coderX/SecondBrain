@@ -19,7 +19,7 @@ authRouter.post("/signup", validate(signupSchema), async (req, res) => {
         }
 
         const passwordHash = await bcrypt.hash(password, 10);
-        
+
         const newUser = new User({
             username,
             password: passwordHash
@@ -27,12 +27,11 @@ authRouter.post("/signup", validate(signupSchema), async (req, res) => {
 
         const savedUser = await newUser.save();
         const token = await jwt.sign({ userId: savedUser._id }, process.env.JWT_SECRET!, { expiresIn: '7d' });
-        
-        // Set a secure cookie
+
         res.cookie("token", token, {
             httpOnly: true,
             secure: process.env.NODE_ENV === "production",
-            sameSite: 'lax'
+            sameSite: process.env.NODE_ENV === "production" ? "none" : "lax", // "none" required for cross-domain
         });
 
         res.status(200).json({ message: "Signed up successfully" });
@@ -54,15 +53,14 @@ authRouter.post("/login", validate(signinSchema), async (req, res) => {
         }
 
         const isPasswordValid = await bcrypt.compare(password, user.password);
-        
+
         if (isPasswordValid) {
             const token = jwt.sign({ userId: user._id }, process.env.JWT_SECRET!, { expiresIn: '7d' });
 
-            // Set a secure cookie
             res.cookie("token", token, {
                 httpOnly: true,
                 secure: process.env.NODE_ENV === "production",
-                sameSite: 'lax'
+                sameSite: process.env.NODE_ENV === "production" ? "none" : "lax", // "none" required for cross-domain
             });
 
             res.status(200).json({ message: "Logged in successfully" });
@@ -77,24 +75,26 @@ authRouter.post("/login", validate(signinSchema), async (req, res) => {
 });
 
 authRouter.post('/logout', async (req, res) => {
-    res.cookie('token', '', { // Set token to empty
+    res.cookie('token', '', {
         httpOnly: true,
-        expires: new Date(0) // Expire the cookie immediately
+        expires: new Date(0),
+        secure: process.env.NODE_ENV === "production",
+        sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
     });
     res.status(200).json({ message: "Logged Out Successfully" });
 });
 
-authRouter.get('/profile', authMiddleware,async(req:AuthRequest,res)=>{
-      try {
-    const userId = req.userId;
-    const user = await User.findById(userId);
-    if (!user) {
-      return res.status(404).json({ message: "User not found" });
+authRouter.get('/profile', authMiddleware, async (req: AuthRequest, res) => {
+    try {
+        const userId = req.userId;
+        const user = await User.findById(userId);
+        if (!user) {
+            return res.status(404).json({ message: "User not found" });
+        }
+        res.send(user);
+    } catch (err: any) {
+        res.status(500).send("ERROR: " + err.message);
     }
-    res.send(user);
-  } catch (err:any) {
-    res.status(500).send("ERROR: " + err.message);
-  }
 })
 
 export default authRouter;

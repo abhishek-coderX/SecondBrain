@@ -29,6 +29,11 @@ const contentSchema = new mongoose.Schema(
       ref: "User",
       required: true,
     },
+    embedding: {
+      type: [Number],
+      default: [],
+      select: false, // don't return embedding in normal queries (it's large)
+    },
   },
   {
     timestamps: true,

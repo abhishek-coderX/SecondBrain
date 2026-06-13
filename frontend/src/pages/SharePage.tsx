@@ -1,7 +1,7 @@
 
 import { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
-import axios from 'axios';
+import api from '../utils/api';
 import { Cards } from '../components/Cards';
 import { Logo } from '../components/icons/Logo';
 import type { Content } from '../types/type';
@@ -16,7 +16,7 @@ const SharePage = () => {
   useEffect(() => {
     const fetchSharedContent = async () => {
       try {
-        const res = await axios.get(`http://localhost:4000/share/${shareId}`);
+        const res = await api.get(`/share/${shareId}`);
         setContents(res.data.content);
         setUsername(res.data.username);
       } catch {
