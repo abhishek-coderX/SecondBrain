@@ -372,6 +372,12 @@ interface CardsProps extends Content {
   onUpdate?: (updated: Content) => void;
 }
 
+const getYoutubeId = (link?: string) => {
+  if (link?.includes("youtube.com/watch?v=")) return link.split("v=")[1]?.split("&")[0];
+  if (link?.includes("youtu.be/")) return link.split("youtu.be/")[1]?.split("?")[0];
+  return null;
+};
+
 export const Cards = ({ onDelete, onUpdate, ...props }: CardsProps) => {
   const { _id, title, link, type, description, tags = [], createdAt, thumbnail, userId, duration } = props;
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
@@ -379,23 +385,41 @@ export const Cards = ({ onDelete, onUpdate, ...props }: CardsProps) => {
 
   // Article OG image state
   const [articleImg, setArticleImg] = useState(thumbnail || null);
+  const [ogLoading, setOgLoading] = useState(false);
+
+  const videoId = getYoutubeId(link);
+  const [ytThumb, setYtThumb] = useState<string>('');
+
+  useEffect(() => {
+    if (!videoId) return;
+    const img = new Image();
+    img.src = `https://img.youtube.com/vi/${videoId}/maxresdefault.jpg`;
+    img.onload = () => {
+      // maxresdefault returns a 120x90 grey image if it doesn't exist
+      if (img.width > 120) {
+        setYtThumb(`https://img.youtube.com/vi/${videoId}/maxresdefault.jpg`);
+      } else {
+        setYtThumb(`https://img.youtube.com/vi/${videoId}/hqdefault.jpg`);
+      }
+    };
+    img.onerror = () => setYtThumb(`https://img.youtube.com/vi/${videoId}/hqdefault.jpg`);
+  }, [videoId]);
 
   useEffect(() => {
     if (type !== 'article' || articleImg || !link) return;
-    fetch(`https://jsonlink.io/api/extract?url=${encodeURIComponent(link)}`)
+    setOgLoading(true);
+    fetch(`https://api.microlink.io?url=${encodeURIComponent(link)}&meta=false`)
       .then(r => r.json())
-      .then(d => { if (d?.images?.[0]) setArticleImg(d.images[0]); })
-      .catch(() => null);
+      .then(d => {
+        const img = d?.data?.image?.url || d?.data?.logo?.url;
+        if (img) setArticleImg(img);
+      })
+      .catch(() => null)
+      .finally(() => setOgLoading(false));
   }, [link, type]);
 
   const cfg = typeConfig[type] ?? typeConfig.article;
   const TypeIcon = cfg.icon;
-
-  const getYoutubeId = () => {
-    if (link?.includes("youtube.com/watch?v=")) return link.split("v=")[1]?.split("&")[0];
-    if (link?.includes("youtu.be/")) return link.split("youtu.be/")[1]?.split("?")[0];
-    return null;
-  };
 
   const renderEmbed = () => {
     if (type === "thought") {
@@ -411,17 +435,14 @@ export const Cards = ({ onDelete, onUpdate, ...props }: CardsProps) => {
     }
 
     if (type === "youtube") {
-      const vid = getYoutubeId();
+      const vid = getYoutubeId(link);
       if (vid) {
         return (
           <div className="relative">
-            <iframe
-              className="h-52 w-full rounded-lg"
-              src={`https://www.youtube.com/embed/${vid}`}
-              title="YouTube"
-              frameBorder="0"
-              allowFullScreen
-              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+            <img 
+              src={ytThumb} 
+              alt={title} 
+              style={{ width: "100%", height: "180px", objectFit: "cover", borderRadius: "8px", display: "block" }} 
             />
             {duration ? (
               <span className="absolute bottom-3 right-3 rounded-full bg-black/70 px-2.5 py-1 text-xs text-white">
@@ -536,7 +557,7 @@ export const Cards = ({ onDelete, onUpdate, ...props }: CardsProps) => {
         />
       ) : null}
 
-      <article className="bento-card bento-shadow-hover overflow-hidden p-5">
+      <article className="bento-card bento-shadow-hover overflow-hidden p-4">
         <div className="flex items-start justify-between gap-3">
           <div className={`inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs font-semibold ${cfg.accentClass}`}>
             <TypeIcon className="h-3.5 w-3.5" />
@@ -591,10 +612,12 @@ export const Cards = ({ onDelete, onUpdate, ...props }: CardsProps) => {
           <div className="mt-4">{renderEmbed()}</div>
         ) : null}
 
-        {/* ARTICLE — OG image via jsonlink, then description */}
+        {/* ARTICLE — OG image via microlink, then description */}
         {type === "article" ? (
           <div className="mt-4">
-            {articleImg ? (
+            {ogLoading ? (
+              <div style={{ width: "100%", height: "180px", background: "linear-gradient(90deg, #f0fdf4 25%, #dcfce7 50%, #f0fdf4 75%)", backgroundSize: "200% 100%", animation: "shimmer 1.5s infinite", borderRadius: "8px" }} />
+            ) : articleImg ? (
               <img
                 src={articleImg}
                 alt={title}

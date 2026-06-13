@@ -6,6 +6,7 @@ import { SearchBar } from "../components/SearchBar";
 import { LayoutGrid, Plus, Share2 } from "lucide-react";
 import type { Content, ContentType } from "../types/type";
 import api from "../utils/api";
+import Masonry from "react-masonry-css";
 
 interface ContentPageProps {
   activeFilter: ContentType | "all";
@@ -66,11 +67,21 @@ const ContentPage = ({ activeFilter }: ContentPageProps) => {
   const renderContent = () => {
     if (isLoading || isSearching) {
       return (
-        <div className="w-full columns-1 sm:columns-2 lg:columns-4 gap-4">
+        <Masonry
+          breakpointCols={{
+            default: 4,
+            1280: 4,
+            1024: 3,
+            768: 2,
+            640: 1
+          }}
+          className="flex w-full -ml-3"
+          columnClassName="pl-3 bg-clip-padding flex flex-col"
+        >
           {[220, 280, 190, 250, 170, 300, 210, 260].map((height, i) => (
-            <div key={i} className="bento-skeleton mb-5 break-inside-avoid" style={{ height }} />
+            <div key={i} className="bento-skeleton mb-3" style={{ height }} />
           ))}
-        </div>
+        </Masonry>
       );
     }
 
@@ -106,13 +117,27 @@ const ContentPage = ({ activeFilter }: ContentPageProps) => {
     }
 
     return (
-      <div className="w-full columns-1 sm:columns-2 lg:columns-4 gap-4">
+      <Masonry
+        breakpointCols={{
+          default: 4,
+          1280: 4,
+          1024: 3,
+          768: 2,
+          640: 1
+        }}
+        className="flex w-full -ml-3"
+        columnClassName="pl-3 bg-clip-padding flex flex-col"
+      >
         {displayedContents.map((content) => (
-          <div key={content._id} className="mb-5 break-inside-avoid">
-            <Cards {...content} onDelete={handleDelete} onUpdate={handleUpdate} />
+          <div key={content._id} className="mb-3">
+            <Cards
+              {...content}
+              onDelete={handleDelete}
+              onUpdate={handleUpdate}
+            />
           </div>
         ))}
-      </div>
+      </Masonry>
     );
   };
 

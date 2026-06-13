@@ -25,23 +25,40 @@ export const AskBrain = () => {
   const [sessions, setSessions] = useState<any[]>([]);
   const [currentSessionId, setCurrentSessionId] = useState<string | null>(null);
   const [showSidebar, setShowSidebar] = useState(true);
+  const [searchQuery, setSearchQuery] = useState('');
   const chatEndRef = useRef<HTMLDivElement | null>(null);
+  const initializedRef = useRef(false);
+
+  const filteredSessions = sessions.filter(s => 
+    (s.title || "New Chat").toLowerCase().includes(searchQuery.toLowerCase())
+  );
 
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, loading]);
 
   useEffect(() => {
+    if (initializedRef.current) return;
+    initializedRef.current = true;
+    
     const init = async () => {
       try {
-        const res = await api.get("/sessions");
+        const res = await api.get('/sessions');
         setSessions(res.data);
-        // Auto-create new session on open
-        const newSession = await api.post("/sessions");
-        setCurrentSessionId(newSession.data._id);
-        // Re-fetch sessions to list the new session in sidebar
-        const refreshed = await api.get("/sessions");
-        setSessions(refreshed.data);
+        if (res.data.length === 0) {
+          const newSession = await api.post('/sessions');
+          setCurrentSessionId(newSession.data._id);
+          const refreshed = await api.get("/sessions");
+          setSessions(refreshed.data);
+        } else {
+          setCurrentSessionId(res.data[0]._id);
+          const sessionRes = await api.get(`/sessions/${res.data[0]._id}`);
+          setMessages(sessionRes.data.messages.map((m: any) => ({
+            sender: m.role === 'user' ? 'user' : 'bot',
+            text: m.content,
+            references: m.references || []
+          })));
+        }
       } catch (err) {
         console.error("Failed to init AskBrain sessions:", err);
       }
@@ -183,44 +200,69 @@ export const AskBrain = () => {
           </div>
           {/* Scrollable Session List */}
           <div className="flex-1 overflow-y-auto p-3 space-y-2">
-            {sessions.map((session: any) => {
-              const isActive = session._id === currentSessionId;
-              return (
-                <div
-                  key={session._id}
-                  onClick={() => handleSelectSession(session._id)}
-                  className={`group relative flex flex-col gap-1 rounded-xl p-3 cursor-pointer transition ${
-                    isActive
-                      ? "bg-[rgba(240,169,120,0.14)] border border-[rgba(240,169,120,0.22)]"
-                      : "hover:bg-black/5"
-                  }`}
-                >
-                  <div className="flex items-start justify-between gap-2">
-                    <span className="text-sm font-medium text-slate-800 truncate pr-6">
-                      {session.title || "New Chat"}
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Search chats..."
+              style={{
+                width: '100%',
+                padding: '8px 12px',
+                borderRadius: '8px',
+                border: '1px solid rgba(15,23,42,0.1)',
+                background: 'rgba(15,23,42,0.03)',
+                fontSize: '0.8rem',
+                fontFamily: "'Plus Jakarta Sans', sans-serif",
+                color: '#0f172a',
+                outline: 'none',
+                marginBottom: '8px'
+              }}
+            />
+
+            {filteredSessions.length === 0 && searchQuery !== '' ? (
+              <p style={{color:'rgba(15,23,42,0.4)', fontSize:'0.75rem', textAlign:'center', padding:'12px'}}>
+                No chats found
+              </p>
+            ) : (
+              filteredSessions.map((session: any) => {
+                const isActive = session._id === currentSessionId;
+                return (
+                  <div
+                    key={session._id}
+                    onClick={() => handleSelectSession(session._id)}
+                    className={`group relative flex flex-col gap-1 rounded-xl p-3 cursor-pointer transition ${
+                      isActive
+                        ? "bg-[rgba(240,169,120,0.14)] border border-[rgba(240,169,120,0.22)]"
+                        : "hover:bg-black/5"
+                    }`}
+                  >
+                    <div className="flex items-start justify-between gap-2">
+                      <span className="text-sm font-medium text-slate-800 truncate pr-6">
+                        {session.title || "New Chat"}
+                      </span>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleDeleteSession(session._id);
+                        }}
+                        className="absolute right-3 top-3 opacity-0 group-hover:opacity-100 p-1 rounded-lg hover:bg-red-50 hover:text-red-600 text-slate-400 transition"
+                        title="Delete Chat"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </button>
+                    </div>
+                    <span className="text-[10px] text-slate-400">
+                      {new Date(session.updatedAt || session.createdAt).toLocaleDateString(undefined, {
+                        month: "short",
+                        day: "numeric",
+                        hour: "2-digit",
+                        minute: "2-digit",
+                      })}
                     </span>
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleDeleteSession(session._id);
-                      }}
-                      className="absolute right-3 top-3 opacity-0 group-hover:opacity-100 p-1 rounded-lg hover:bg-red-50 hover:text-red-600 text-slate-400 transition"
-                      title="Delete Chat"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </button>
                   </div>
-                  <span className="text-[10px] text-slate-400">
-                    {new Date(session.updatedAt || session.createdAt).toLocaleDateString(undefined, {
-                      month: "short",
-                      day: "numeric",
-                      hour: "2-digit",
-                      minute: "2-digit",
-                    })}
-                  </span>
-                </div>
-              );
-            })}
+                );
+              })
+            )}
           </div>
         </div>
       ) : null}

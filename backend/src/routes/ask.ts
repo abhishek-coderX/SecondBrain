@@ -92,9 +92,11 @@ ${contextString || "No relevant content found for this query."}`;
         // Update title if this is the first message
         const session = await ChatSession.findById(sessionId);
         if (session && session.title === 'New Chat' && session.messages.length <= 2) {
-          await ChatSession.findByIdAndUpdate(sessionId, {
-            title: question.slice(0, 50)
-          });
+          // Use first 40 chars of first user question as title
+          const title = question.length > 40 
+            ? question.slice(0, 40) + '...' 
+            : question;
+          await ChatSession.findByIdAndUpdate(sessionId, { title });
         }
       } catch (err) {
         console.error("Failed to save to session:", err);
