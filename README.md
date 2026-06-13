@@ -1,59 +1,58 @@
-# Second Brain
+# SecondBrain 🧠
 
-## Description
+A RAG-based personal knowledge management system. Save YouTube videos, tweets, articles, and thoughts — then semantically search and chat with your saved content using AI.
 
-Second Brain is a personal knowledge management system where you can store, organize, and share your ideas and thoughts. It acts as a digital extension of your mind, helping you capture information, connect concepts, and retrieve them effortlessly.
+## Live Demo
+[Coming soon](#)
 
 ## Features
+- Save YouTube, Twitter, Articles, and Thoughts in one place
+- Semantic search powered by Google Gemini embeddings
+- Ask Your Brain — RAG chat grounded in your saved content
+- Tag-based filtering and masonry grid layout
+- Share curated content collections via public links
+- Full CRUD with auto embedding regeneration on edit
+- Chat session history with persistent conversations
 
-- **Capture Ideas:** Easily save notes, links, and other content.
-- **Organize:** Tag and categorize your content for better organization.
-- **Share:** Share your curated knowledge with others.
-- **Search:** Quickly find any piece of information you've stored.
+## Tech Stack
+**Backend:** Node.js, Express.js, TypeScript, MongoDB, Mongoose, JWT, Zod, Google Gemini API
 
-## Technologies Used
+**Frontend:** React, TypeScript, Vite, Tailwind CSS, Redux Toolkit, Axios, React Markdown
 
-### Backend
+## RAG Architecture
 
-- **Node.js:** JavaScript runtime environment.
-- **Express.js:** Web application framework for Node.js.
-- **TypeScript:** Superset of JavaScript that adds static typing.
-- **MongoDB (via Mongoose):** NoSQL database for data storage.
-- **Bcryptjs:** For password hashing.
-- **CORS:** Middleware for enabling Cross-Origin Resource Sharing.
-- **Dotenv:** For loading environment variables.
-- **Express-validator:** Middleware for request data validation.
-- **JSON Web Token (JWT):** For authentication.
-- **Nodemailer:** For sending emails.
-- **Zod:** TypeScript-first schema declaration and validation library.
+Save content → Generate Gemini embedding (3072d) → Store in MongoDB
 
-### Frontend
+Ask question → Embed query → Cosine similarity search → Feed top matches to Gemini → Grounded answer
 
-- **React:** JavaScript library for building user interfaces.
-- **TypeScript:** Superset of JavaScript that adds static typing.
-- **Vite:** Next-generation frontend tooling.
-- **Tailwind CSS:** A utility-first CSS framework for rapid UI development.
-- **React Router DOM:** For declarative routing in React applications.
-- **Redux Toolkit:** For state management.
-- **Axios:** Promise-based HTTP client.
-- **JS-Cookie:** For handling cookies.
-- **React Hot Toast:** For displaying notifications.
-- **React Icons:** A collection of popular icons.
-- **React Spinners:** A collection of loading spinners.
-- **Zod:** TypeScript-first schema declaration and validation library.
 
-## Getting Started
+## Local Setup
 
-(Instructions on how to set up and run the project will go here.)
+**Backend**
+```bash
+cd backend && npm install && npm run dev
+```
 
-## Usage
+**Frontend**
+```bash
+cd frontend && npm install && npm run dev
+```
 
-(Instructions on how to use the application will go here.)
+**Backend `.env`**
 
-## Contributing
+MONGO_URI=
 
-(Guidelines for contributing to the project will go here.)
+JWT_SECRET=
 
-## License
+GEMINI_API_KEY=
 
-(License information will go here.)
+ALLOWED_ORIGIN=http://localhost:5173
+
+NODE_ENV=development
+
+**Frontend `.env`**
+
+VITE_API_URL=http://localhost:4000
+
+## Author
+[abhishek-coderX](https://github.com/abhishek-coderX)
