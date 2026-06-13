@@ -3,6 +3,7 @@ import { authMiddleware, AuthRequest } from "../middlewares/auth";
 import Content from "../model/content";
 import { getEmbedding, cosineSimilarity } from "../utils/embeddings";
 import { generateAnswer } from "../utils/llm";
+import ChatSession from "../model/chatSession";
 
 const askRouter = Router();
 
@@ -10,7 +11,7 @@ askRouter.use(authMiddleware);
 
 askRouter.post("/ask", async (req: AuthRequest, res) => {
   try {
-    const { question } = req.body;
+    const { question, history, sessionId } = req.body;
     const userId = req.userId!;
 
     if (!question || question.trim().length === 0) {
@@ -72,6 +73,33 @@ ${contextString || "No relevant content found for this query."}`;
 
     // 7. Generate answer
     const answer = await generateAnswer(question, systemInstruction);
+
+    if (sessionId) {
+      try {
+        await ChatSession.findByIdAndUpdate(sessionId, {
+          $push: {
+            messages: {
+              $each: [
+                { role: 'user', content: question },
+                { role: 'assistant', content: answer, references: topMatches }
+              ]
+            }
+          },
+          // Set title from first user message if still "New Chat"
+          $set: { updatedAt: new Date() }
+        });
+
+        // Update title if this is the first message
+        const session = await ChatSession.findById(sessionId);
+        if (session && session.title === 'New Chat' && session.messages.length <= 2) {
+          await ChatSession.findByIdAndUpdate(sessionId, {
+            title: question.slice(0, 50)
+          });
+        }
+      } catch (err) {
+        console.error("Failed to save to session:", err);
+      }
+    }
 
     // 8. Return answer and pruned reference cards
     res.status(200).json({

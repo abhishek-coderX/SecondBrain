@@ -378,22 +378,15 @@ export const Cards = ({ onDelete, onUpdate, ...props }: CardsProps) => {
   const [showEditModal, setShowEditModal] = useState(false);
 
   // Article OG image state
-  const [ogImage, setOgImage] = useState<string | null>(null);
-  const [ogLoading, setOgLoading] = useState(false);
+  const [articleImg, setArticleImg] = useState(thumbnail || null);
 
   useEffect(() => {
-    if (type !== "article" || !link) return;
-    if (thumbnail) { setOgImage(thumbnail); return; }
-    setOgLoading(true);
-    fetch(`https://api.microlink.io?url=${encodeURIComponent(link)}`)
-      .then((r) => r.json())
-      .then((data) => {
-        const imageUrl = data?.data?.image?.url || data?.data?.screenshot?.url;
-        if (imageUrl) setOgImage(imageUrl);
-      })
-      .catch(() => null)
-      .finally(() => setOgLoading(false));
-  }, [link, type, thumbnail]);
+    if (type !== 'article' || articleImg || !link) return;
+    fetch(`https://jsonlink.io/api/extract?url=${encodeURIComponent(link)}`)
+      .then(r => r.json())
+      .then(d => { if (d?.images?.[0]) setArticleImg(d.images[0]); })
+      .catch(() => null);
+  }, [link, type]);
 
   const cfg = typeConfig[type] ?? typeConfig.article;
   const TypeIcon = cfg.icon;
@@ -598,17 +591,15 @@ export const Cards = ({ onDelete, onUpdate, ...props }: CardsProps) => {
           <div className="mt-4">{renderEmbed()}</div>
         ) : null}
 
-        {/* ARTICLE — OG image via microlink, then description */}
+        {/* ARTICLE — OG image via jsonlink, then description */}
         {type === "article" ? (
           <div className="mt-4">
-            {ogLoading ? (
-              <div style={{ width: "100%", height: "180px", background: "linear-gradient(90deg, #f0fdf4 25%, #dcfce7 50%, #f0fdf4 75%)", backgroundSize: "200% 100%", animation: "shimmer 1.5s infinite", borderRadius: "8px" }} />
-            ) : ogImage ? (
+            {articleImg ? (
               <img
-                src={ogImage}
+                src={articleImg}
                 alt={title}
                 style={{ width: "100%", height: "180px", objectFit: "cover", borderRadius: "8px", display: "block" }}
-                onError={() => setOgImage(null)}
+                onError={() => setArticleImg(null)}
               />
             ) : (
               <div style={{ width: "100%", height: "120px", background: "#f0fdf4", border: "1px dashed #16a34a", borderRadius: "8px", display: "flex", alignItems: "center", justifyContent: "center" }}>

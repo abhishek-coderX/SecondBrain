@@ -66,7 +66,7 @@ const ContentPage = ({ activeFilter }: ContentPageProps) => {
   const renderContent = () => {
     if (isLoading || isSearching) {
       return (
-        <div className="w-full columns-1 gap-5 sm:columns-2 lg:columns-3 2xl:columns-4">
+        <div className="w-full columns-1 sm:columns-2 lg:columns-4 gap-4">
           {[220, 280, 190, 250, 170, 300, 210, 260].map((height, i) => (
             <div key={i} className="bento-skeleton mb-5 break-inside-avoid" style={{ height }} />
           ))}
@@ -106,7 +106,7 @@ const ContentPage = ({ activeFilter }: ContentPageProps) => {
     }
 
     return (
-      <div className="w-full columns-1 gap-5 sm:columns-2 lg:columns-3 2xl:columns-4">
+      <div className="w-full columns-1 sm:columns-2 lg:columns-4 gap-4">
         {displayedContents.map((content) => (
           <div key={content._id} className="mb-5 break-inside-avoid">
             <Cards {...content} onDelete={handleDelete} onUpdate={handleUpdate} />
@@ -131,14 +131,16 @@ const ContentPage = ({ activeFilter }: ContentPageProps) => {
 
           <div className="flex flex-col gap-3 lg:min-w-[520px] lg:flex-row lg:items-center lg:justify-end">
             <SearchBar onSearch={setSearchResults} onSearchStateChange={setIsSearching} />
-            <button className="bento-button bento-button-secondary" onClick={() => setIsShareModalOpen(true)}>
-              <Share2 className="h-4 w-4" />
-              Share Brain
-            </button>
-            <button className="bento-button bento-button-primary" onClick={() => setIsModalOpen(true)}>
-              <Plus className="h-4 w-4" />
-              Add Content
-            </button>
+            <div className="flex items-center gap-2 flex-wrap justify-end">
+              <button className="bento-button bento-button-secondary" onClick={() => setIsShareModalOpen(true)}>
+                <Share2 className="h-4 w-4" />
+                Share Brain
+              </button>
+              <button className="bento-button bento-button-primary" onClick={() => setIsModalOpen(true)}>
+                <Plus className="h-4 w-4" />
+                Add Content
+              </button>
+            </div>
           </div>
         </div>
       </section>
