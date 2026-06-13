@@ -1,18 +1,14 @@
-# Node & Dependencies
+# Dependencies
 node_modules/
+.pnp
+.pnp.js
+
+# Build outputs
 dist/
+build/
 *.tsbuildinfo
 
-# IDEs
-.vscode/
-.idea/
-*.suo
-*.ntvs*
-*.njsproj
-*.sln
-*.sw?
-
-# Environment & Secrets
+# Environment variables
 .env
 .env.local
 .env.development.local
@@ -20,13 +16,26 @@ dist/
 .env.production.local
 .env.staging
 
-# OS files
+# Logs
+logs/
+*.log
+npm-debug.log*
+
+# OS
 .DS_Store
 Thumbs.db
-.agents
-.claude
 
-.env
-node_modules/
-dist/ROADMAP.md
+# IDE
+.vscode/
+.idea/
+
+# AI agent files
+.agents/
+.claude/
+.cursor/
 skills-lock.json
+ROADMAP.md
+
+# Misc
+*.md
+!README.md
