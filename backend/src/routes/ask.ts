@@ -2,7 +2,7 @@ import { Router } from "express";
 import { authMiddleware, AuthRequest } from "../middlewares/auth";
 import Content from "../model/content";
 import { getEmbedding, cosineSimilarity } from "../utils/embeddings";
-import { generateAnswer } from "../utils/llm";
+import { generateAnswer, ai } from "../utils/llm";
 import ChatSession from "../model/chatSession";
 
 const askRouter = Router();
@@ -18,16 +18,164 @@ askRouter.post("/ask", async (req: AuthRequest, res) => {
       return res.status(400).json({ message: "Question is required." });
     }
 
-    // 1. Get embedding for the user's question
-    const queryEmbedding = await getEmbedding(question);
+    // ═══ STAGE 1: INTENT CLASSIFICATION ═══
 
-    // 2. Fetch all user content with embeddings
+    const classifyResponse = await ai.models.generateContent({
+      model: "gemini-2.5-flash",
+      contents: `You are a message classifier. Classify the following user message into exactly ONE category. 
+      
+      Reply with ONLY the JSON object, no explanation, no markdown:
+      {"category": "CATEGORY", "confidence": 0.95}
+      
+      Categories:
+      - GREETING: casual conversation, greetings, thanks, how are you, bye, small talk
+      - META: asking about what is saved/stored in brain, listing content, summarizing brain contents, "what do I have", "show everything"
+      - FOLLOWUP: continuing a previous conversation, "tell me more", "explain further", "what about that", references to previous messages
+      - SPECIFIC: asking about a specific topic, concept, person, technology that may or may not be in the brain
+      
+      Conversation history for context:
+      ${(history || []).slice(-3).map((m: any) => `${m.role}: ${m.content}`).join('\n')}
+      
+      Current message: "${question}"`,
+      config: { temperature: 0 }
+    });
+
+    let category = 'SPECIFIC';
+    let confidence = 0.8;
+    try {
+      const raw = classifyResponse.text?.trim() || '{}';
+      const parsed = JSON.parse(raw.replace(/```json|```/g, '').trim());
+      category = parsed.category || 'SPECIFIC';
+      confidence = parsed.confidence || 0.8;
+    } catch {
+      category = 'SPECIFIC';
+    }
+
+    // ═══ STAGE 2: HANDLE BASED ON CATEGORY ═══
+
+    // Build conversation context from history for all responses
+    const conversationContext = (history || [])
+      .slice(-6)
+      .map((m: any) => `${m.role === 'user' ? 'User' : 'Assistant'}: ${m.content}`)
+      .join('\n');
+
+    // GREETING handler
+    if (category === 'GREETING') {
+      const systemInstruction = `You are SecondBrain AI, a friendly personal knowledge assistant. 
+         Respond naturally and briefly to this greeting or casual message.
+         Previous conversation:\n${conversationContext}`;
+      const { text: greetingAnswer } = await generateAnswer(question, systemInstruction, false);
+      
+      if (sessionId) {
+        await ChatSession.findByIdAndUpdate(sessionId, {
+          $push: { messages: { $each: [
+            { role: 'user', content: question },
+            { 
+              role: 'assistant', 
+              content: greetingAnswer, 
+              references: [],
+              webSources: [],
+              source: 'greeting'
+            }
+          ]}}
+        });
+      }
+      
+      return res.status(200).json({ answer: greetingAnswer, references: [], source: 'greeting' });
+    }
+
+    // Fetch all user content for other handlers
     const contents = await Content.find({ userId })
       .select("+embedding")
       .populate("tags", "name")
       .populate("userId", "username");
 
-    // 3. Compute cosine similarity scores
+    // META handler — user asking about their brain contents
+    if (category === 'META') {
+      const allContents = contents.map((item: any, idx: number) =>
+        `[${idx + 1}] Title: "${item.title}" | Type: ${item.type} | Description: ${item.description || 'No description'}`
+      ).join('\n');
+
+      const metaSystemInstruction = `You are SecondBrain AI. The user is asking about what they have saved in their personal knowledge base.
+
+Here is a complete list of everything saved in their SecondBrain:
+${allContents || 'Nothing saved yet.'}
+
+Previous conversation:
+${conversationContext}
+
+Instructions:
+- Summarize what they have saved in a natural, conversational way
+- Group by type if there are many items (videos, articles, tweets, thoughts)
+- Be concise but complete
+- Don't use internal field names like "type" or "description" — speak naturally`;
+
+      const { text: metaAnswer } = await generateAnswer(question, metaSystemInstruction, false);
+
+      if (sessionId) {
+        await ChatSession.findByIdAndUpdate(sessionId, {
+          $push: { messages: { $each: [
+            { role: 'user', content: question },
+            { 
+              role: 'assistant', 
+              content: metaAnswer, 
+              references: [],
+              webSources: [],
+              source: 'brain'
+            }
+          ]}}
+        });
+        const session = await ChatSession.findById(sessionId);
+        if (session?.title === 'New Chat') {
+          await ChatSession.findByIdAndUpdate(sessionId, {
+            title: question.slice(0, 40)
+          });
+        }
+      }
+
+      return res.status(200).json({ answer: metaAnswer, references: [], source: 'brain' });
+    }
+
+    // FOLLOWUP handler — use conversation history as primary context
+    if (category === 'FOLLOWUP') {
+      const followupSystemInstruction = `You are SecondBrain AI. The user is continuing a previous conversation.
+
+Previous conversation:
+${conversationContext}
+
+Brain content for reference:
+${contents.slice(0, 10).map((item: any) => 
+  `Title: "${item.title}" | Type: ${item.type} | Description: ${item.description || 'N/A'}`
+).join('\n')}
+
+Answer the follow-up naturally based on the conversation context. 
+Cite brain sources if relevant using (Source: title).`;
+
+      const { text: followupAnswer } = await generateAnswer(question, followupSystemInstruction, false);
+
+      if (sessionId) {
+        await ChatSession.findByIdAndUpdate(sessionId, {
+          $push: { messages: { $each: [
+            { role: 'user', content: question },
+            { 
+              role: 'assistant', 
+              content: followupAnswer, 
+              references: [],
+              webSources: [],
+              source: 'brain'
+            }
+          ]}}
+        });
+      }
+
+      return res.status(200).json({ answer: followupAnswer, references: [], source: 'brain' });
+    }
+
+    // SPECIFIC handler — existing semantic search flow
+    // 1. Get embedding for the user's question
+    const queryEmbedding = await getEmbedding(question);
+
+    // 2. Compute cosine similarity scores
     const scoredContents = contents
       .map((item: any) => {
         const itemObj = item.toObject();
@@ -54,26 +202,53 @@ askRouter.post("/ask", async (req: AuthRequest, res) => {
       })
       .join("\n\n");
 
-    // 6. Single unified system instruction — Gemini handles all cases naturally
-    const systemInstruction = `You are SecondBrain AI, a helpful personal knowledge assistant.
+    // If brain has good matches, use brain context without web search
+    // If brain has no matches, use web search
+    const hasBrainContext = topMatches.length > 0;
 
-You have access to the user's saved content as context below.
+    const specificSystemInstruction = hasBrainContext
+      ? `You are SecondBrain AI.
+      
+Context from user's SecondBrain:
+${contextString}
+
+Previous conversation:
+${conversationContext}
 
 Rules:
-1. If the context contains relevant information, use it to answer and cite sources inline like (Source: title).
-2. If the context is not relevant or empty, answer from your general knowledge naturally.
-3. For greetings or casual messages, respond naturally and briefly like a friendly assistant.
-4. For questions outside the brain context, just answer helpfully.
-5. Never say "I don't have this in your SecondBrain" — just answer or ask for clarification.
-6. Never mention tags, raw URLs, or internal metadata in your response.
-7. Cite sources only by their title like (Source: title). Keep answers concise and conversational.
+1. Answer using the brain context provided
+2. Cite sources inline like (Source: title)
+3. Never mention tags, URLs, or metadata
+4. Be concise and conversational
+5. Start your response with exactly: "🧠 From your SecondBrain:\n\n"`
+      : `You are SecondBrain AI. 
+      
+The user's SecondBrain has no saved content about this topic.
+Previous conversation:
+${conversationContext}
 
-Context from user's SecondBrain:
-${contextString || "No relevant content found for this query."}`;
+Rules:
+1. Search the web and answer from current information
+2. Be helpful and accurate  
+3. Start your response with exactly: "💡 Not in your SecondBrain, but here's what I know:\n\n"
+4. Mention if the information might be outdated`;
 
-    // 7. Generate answer
-    const answer = await generateAnswer(question, systemInstruction);
+    const { text: specificAnswer, groundingChunks } = await generateAnswer(
+      question,
+      specificSystemInstruction,
+      !hasBrainContext  // only use web search when brain has no context
+    );
 
+    // Build web sources from grounding chunks
+    const webSources = (groundingChunks || [])
+      .filter((chunk: any) => chunk?.web?.uri)
+      .slice(0, 3)
+      .map((chunk: any) => ({
+        title: chunk.web.title || chunk.web.uri,
+        url: chunk.web.uri
+      }));
+
+    // Save to session
     if (sessionId) {
       try {
         await ChatSession.findByIdAndUpdate(sessionId, {
@@ -81,32 +256,35 @@ ${contextString || "No relevant content found for this query."}`;
             messages: {
               $each: [
                 { role: 'user', content: question },
-                { role: 'assistant', content: answer, references: topMatches }
+                { 
+                  role: 'assistant', 
+                  content: specificAnswer, 
+                  references: hasBrainContext ? topMatches : [],
+                  webSources: webSources,
+                  source: hasBrainContext ? 'brain' : 'web'
+                }
               ]
             }
           },
-          // Set title from first user message if still "New Chat"
           $set: { updatedAt: new Date() }
         });
 
-        // Update title if this is the first message
         const session = await ChatSession.findById(sessionId);
         if (session && session.title === 'New Chat' && session.messages.length <= 2) {
-          // Use first 40 chars of first user question as title
-          const title = question.length > 40 
-            ? question.slice(0, 40) + '...' 
-            : question;
-          await ChatSession.findByIdAndUpdate(sessionId, { title });
+          await ChatSession.findByIdAndUpdate(sessionId, {
+            title: question.slice(0, 40)
+          });
         }
       } catch (err) {
         console.error("Failed to save to session:", err);
       }
     }
 
-    // 8. Return answer and pruned reference cards
-    res.status(200).json({
-      answer,
-      references: topMatches,
+    return res.status(200).json({
+      answer: specificAnswer,
+      references: hasBrainContext ? topMatches : [],
+      webSources: webSources,
+      source: hasBrainContext ? 'brain' : 'web'
     });
   } catch (error) {
     console.error("❌ Ask SecondBrain error:", error);
@@ -115,3 +293,4 @@ ${contextString || "No relevant content found for this query."}`;
 });
 
 export default askRouter;
+

@@ -3,7 +3,7 @@ import dotenv from "dotenv";
 
 dotenv.config();
 
-const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY! });
+export const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY! });
 
 /**
  * Generate an answer using Gemini, grounded by the provided system instruction.
@@ -15,8 +15,9 @@ const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY! });
  */
 export async function generateAnswer(
   question: string,
-  systemInstruction: string
-): Promise<string> {
+  systemInstruction: string,
+  useWebSearch: boolean = false
+): Promise<{ text: string; groundingChunks?: any[] }> {
   if (!question || question.trim().length === 0) {
     throw new Error("Question cannot be empty");
   }
@@ -26,16 +27,26 @@ export async function generateAnswer(
 
   for (let i = 0; i < attempts; i++) {
     try {
+      const config: any = {
+        systemInstruction,
+        temperature: 0.4,
+      };
+
+      if (useWebSearch) {
+        config.tools = [{ googleSearch: {} }];
+      }
+
       const response = await ai.models.generateContent({
         model: "gemini-2.5-flash",
         contents: question,
-        config: {
-          systemInstruction,
-          temperature: 0.4,
-        },
+        config,
       });
 
-      return response.text || "No response generated.";
+      const text = response.text || "No response generated.";
+      const groundingChunks = response.candidates?.[0]
+        ?.groundingMetadata?.groundingChunks || [];
+
+      return { text, groundingChunks };
     } catch (error: any) {
       const isRetryable =
         error?.status === 503 ||
@@ -44,18 +55,14 @@ export async function generateAnswer(
         error?.message?.includes("429");
 
       if (isRetryable && i < attempts - 1) {
-        console.warn(
-          `⏳ Gemini busy (Attempt ${i + 1}/${attempts}), retrying in ${delay / 1000}s...`
-        );
+        console.warn(`⏳ Gemini busy (Attempt ${i + 1}/${attempts}), retrying in ${delay / 1000}s...`);
         await new Promise((r) => setTimeout(r, delay));
         delay *= 2;
         continue;
       }
-
       console.error("❌ LLM Generation error:", error?.message || error);
       throw error;
     }
   }
-
-  throw new Error("Failed to generate content after multiple attempts");
+  throw new Error("Failed after multiple attempts");
 }

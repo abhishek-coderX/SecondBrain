@@ -4,6 +4,8 @@ const messageSchema = new Schema({
   role: { type: String, enum: ['user', 'assistant'], required: true },
   content: { type: String, required: true },
   references: [{ type: Schema.Types.Mixed }],
+  webSources: [{ title: String, url: String }],
+  source: { type: String, enum: ['brain', 'web', 'greeting'], default: 'brain' }
 }, { timestamps: true });
 
 const chatSessionSchema = new Schema({

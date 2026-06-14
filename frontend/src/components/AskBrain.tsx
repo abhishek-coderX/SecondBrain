@@ -11,6 +11,8 @@ interface Message {
   sender: "user" | "bot";
   text: string;
   references?: Content[];
+  webSources?: { title: string; url: string }[];
+  source?: 'brain' | 'web' | 'greeting';
 }
 
 export const AskBrain = () => {
@@ -24,7 +26,7 @@ export const AskBrain = () => {
   const [loading, setLoading] = useState(false);
   const [sessions, setSessions] = useState<any[]>([]);
   const [currentSessionId, setCurrentSessionId] = useState<string | null>(null);
-  const [showSidebar, setShowSidebar] = useState(true);
+  const [showSidebar, setShowSidebar] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const chatEndRef = useRef<HTMLDivElement | null>(null);
   const initializedRef = useRef(false);
@@ -45,20 +47,16 @@ export const AskBrain = () => {
       try {
         const res = await api.get('/sessions');
         setSessions(res.data);
-        if (res.data.length === 0) {
-          const newSession = await api.post('/sessions');
-          setCurrentSessionId(newSession.data._id);
-          const refreshed = await api.get("/sessions");
-          setSessions(refreshed.data);
-        } else {
-          setCurrentSessionId(res.data[0]._id);
-          const sessionRes = await api.get(`/sessions/${res.data[0]._id}`);
-          setMessages(sessionRes.data.messages.map((m: any) => ({
-            sender: m.role === 'user' ? 'user' : 'bot',
-            text: m.content,
-            references: m.references || []
-          })));
-        }
+        // Always start with a fresh new chat
+        const newSession = await api.post('/sessions');
+        setCurrentSessionId(newSession.data._id);
+        setMessages([{
+          sender: 'bot',
+          text: "Hello! Ask me anything about your saved content.",
+          references: []
+        }]);
+        const refreshed = await api.get("/sessions");
+        setSessions(refreshed.data);
       } catch (err) {
         console.error("Failed to init AskBrain sessions:", err);
       }
@@ -77,6 +75,8 @@ export const AskBrain = () => {
           sender: m.role === "user" ? "user" : "bot",
           text: m.content,
           references: m.references,
+          webSources: m.webSources,
+          source: m.source,
         }));
         setMessages(mapped);
       } else {
@@ -87,6 +87,7 @@ export const AskBrain = () => {
           },
         ]);
       }
+      setShowSidebar(false);
     } catch (err) {
       console.error("Failed to load session messages:", err);
     } finally {
@@ -151,6 +152,8 @@ export const AskBrain = () => {
           sender: "bot",
           text: response.data.answer,
           references: response.data.references,
+          webSources: response.data.webSources,
+          source: response.data.source,
         },
       ]);
       // Refresh session list to show updated title and dates
@@ -304,6 +307,37 @@ export const AskBrain = () => {
                       <ReactMarkdown>{msg.text}</ReactMarkdown>
                     </div>
                   </div>
+
+                  {!isUser && msg.webSources && msg.webSources.length > 0 && (
+                    <div className="mt-2 w-full">
+                      <p style={{fontSize:'0.7rem', color:'rgba(15,23,42,0.4)', textTransform:'uppercase', letterSpacing:'0.1em', marginBottom:'6px', fontFamily:"'Plus Jakarta Sans', sans-serif"}}>
+                        Web Sources
+                      </p>
+                      <div className="flex flex-col gap-1">
+                        {msg.webSources.map((source, idx) => (
+                          <a
+                            key={idx}
+                            href={source.url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            style={{
+                              fontSize:'0.75rem',
+                              color:'#2563eb',
+                              fontFamily:"'Plus Jakarta Sans', sans-serif",
+                              textDecoration:'none',
+                              display:'flex',
+                              alignItems:'center',
+                              gap:'4px'
+                            }}
+                            onMouseEnter={e => e.currentTarget.style.textDecoration = 'underline'}
+                            onMouseLeave={e => e.currentTarget.style.textDecoration = 'none'}
+                          >
+                            🌐 {source.title.length > 50 ? source.title.slice(0, 50) + '...' : source.title}
+                          </a>
+                        ))}
+                      </div>
+                    </div>
+                  )}
 
                   {!isUser && index > 0 && msg.references && msg.references.length > 0 ? (
                     <div className="mt-3 flex flex-wrap gap-2">

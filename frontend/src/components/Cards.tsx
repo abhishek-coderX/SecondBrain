@@ -384,8 +384,8 @@ export const Cards = ({ onDelete, onUpdate, ...props }: CardsProps) => {
   const [showEditModal, setShowEditModal] = useState(false);
 
   // Article OG image state
-  const [articleImg, setArticleImg] = useState(thumbnail || null);
-  const [ogLoading, setOgLoading] = useState(false);
+  const [articleImg, setArticleImg] = useState<string | null>(thumbnail || null);
+  const [imgLoading, setImgLoading] = useState(false);
 
   const videoId = getYoutubeId(link);
   const [ytThumb, setYtThumb] = useState<string>('');
@@ -406,17 +406,47 @@ export const Cards = ({ onDelete, onUpdate, ...props }: CardsProps) => {
   }, [videoId]);
 
   useEffect(() => {
+    if (type !== 'article' || !link) return;
+    setArticleImg(thumbnail || null);
+  }, [link, type, thumbnail]);
+
+  useEffect(() => {
     if (type !== 'article' || articleImg || !link) return;
-    setOgLoading(true);
-    fetch(`https://api.microlink.io?url=${encodeURIComponent(link)}&meta=false`)
-      .then(r => r.json())
-      .then(d => {
-        const img = d?.data?.image?.url || d?.data?.logo?.url;
-        if (img) setArticleImg(img);
-      })
-      .catch(() => null)
-      .finally(() => setOgLoading(false));
-  }, [link, type]);
+    setImgLoading(true);
+
+    const fetchImage = async () => {
+      // Try 1: linkpreview.net (works for Medium)
+      try {
+        const r = await fetch(
+          `https://api.linkpreview.net/?key=free&q=${encodeURIComponent(link)}`
+        );
+        const d = await r.json();
+        if (d?.image && !d.image.includes('logo') && !d.image.includes('favicon')) {
+          setArticleImg(d.image);
+          return;
+        }
+      } catch {}
+
+      // Try 2: microlink
+      try {
+        const r = await fetch(`https://api.microlink.io?url=${encodeURIComponent(link)}`);
+        const d = await r.json();
+        const img = d?.data?.image?.url;
+        if (img && !img.includes('logo') && img.includes('http')) {
+          setArticleImg(img);
+          return;
+        }
+      } catch {}
+
+      // Try 3: Branded domain placeholder — better than nothing
+      try {
+        const domain = new URL(link).hostname.replace('www.', '');
+        setArticleImg(`DOMAIN:${domain}`);
+      } catch {}
+    };
+
+    fetchImage().finally(() => setImgLoading(false));
+  }, [link, type, thumbnail]);
 
   const cfg = typeConfig[type] ?? typeConfig.article;
   const TypeIcon = cfg.icon;
@@ -439,13 +469,23 @@ export const Cards = ({ onDelete, onUpdate, ...props }: CardsProps) => {
       if (vid) {
         return (
           <div className="relative">
-            <img 
-              src={ytThumb} 
-              alt={title} 
-              style={{ width: "100%", height: "180px", objectFit: "cover", borderRadius: "8px", display: "block" }} 
-            />
+            {link ? (
+              <a href={link} target="_blank" rel="noopener noreferrer" className="block cursor-pointer">
+                <img 
+                  src={ytThumb} 
+                  alt={title} 
+                  style={{ width: "100%", height: "180px", objectFit: "cover", borderRadius: "8px", display: "block" }} 
+                />
+              </a>
+            ) : (
+              <img 
+                src={ytThumb} 
+                alt={title} 
+                style={{ width: "100%", height: "180px", objectFit: "cover", borderRadius: "8px", display: "block" }} 
+              />
+            )}
             {duration ? (
-              <span className="absolute bottom-3 right-3 rounded-full bg-black/70 px-2.5 py-1 text-xs text-white">
+              <span className="absolute bottom-3 right-3 rounded-full bg-black/70 px-2.5 py-1 text-xs text-white pointer-events-none">
                 {duration}
               </span>
             ) : null}
@@ -456,13 +496,14 @@ export const Cards = ({ onDelete, onUpdate, ...props }: CardsProps) => {
 
     if (type === "twitter") {
       const urlUsername = link?.match(/(?:twitter\.com|x\.com)\/([^/]+)\/status/)?.[1];
-      return (
+      const tweetContent = (
         <div
           style={{
             background: "#f7f9fa",
             border: "1px solid #e1e8ed",
             borderRadius: "8px",
             padding: "16px",
+            cursor: link ? "pointer" : "default",
           }}
         >
           {description ? (
@@ -506,10 +547,7 @@ export const Cards = ({ onDelete, onUpdate, ...props }: CardsProps) => {
               ) : null}
             </div>
             {link ? (
-              <a
-                href={link}
-                target="_blank"
-                rel="noopener noreferrer"
+              <span
                 style={{
                   fontSize: "0.75rem",
                   fontWeight: 600,
@@ -521,10 +559,18 @@ export const Cards = ({ onDelete, onUpdate, ...props }: CardsProps) => {
                 }}
               >
                 View on X ↗
-              </a>
+              </span>
             ) : null}
           </div>
         </div>
+      );
+
+      return link ? (
+        <a href={link} target="_blank" rel="noopener noreferrer" style={{ textDecoration: "none", display: "block" }}>
+          {tweetContent}
+        </a>
+      ) : (
+        tweetContent
       );
     }
 
@@ -615,19 +661,60 @@ export const Cards = ({ onDelete, onUpdate, ...props }: CardsProps) => {
         {/* ARTICLE — OG image via microlink, then description */}
         {type === "article" ? (
           <div className="mt-4">
-            {ogLoading ? (
-              <div style={{ width: "100%", height: "180px", background: "linear-gradient(90deg, #f0fdf4 25%, #dcfce7 50%, #f0fdf4 75%)", backgroundSize: "200% 100%", animation: "shimmer 1.5s infinite", borderRadius: "8px" }} />
-            ) : articleImg ? (
-              <img
-                src={articleImg}
-                alt={title}
-                style={{ width: "100%", height: "180px", objectFit: "cover", borderRadius: "8px", display: "block" }}
-                onError={() => setArticleImg(null)}
-              />
+            {imgLoading ? (
+              <div style={{width:'100%', height:'160px', background:'linear-gradient(90deg, #f0fdf4 25%, #dcfce7 50%, #f0fdf4 75%)', backgroundSize:'200% 100%', animation:'shimmer 1.5s infinite', borderRadius:'8px'}} />
+            ) : link ? (
+              <a href={link} target="_blank" rel="noopener noreferrer" className="block cursor-pointer">
+                {articleImg && !articleImg.startsWith('DOMAIN:') ? (
+                  <img
+                    src={articleImg}
+                    alt={title}
+                    style={{width:'100%', height:'160px', objectFit:'cover', borderRadius:'8px'}}
+                    onError={() => {
+                      try {
+                        const domain = new URL(link).hostname.replace('www.', '');
+                        setArticleImg(`DOMAIN:${domain}`);
+                      } catch { setArticleImg(null); }
+                    }}
+                  />
+                ) : articleImg?.startsWith('DOMAIN:') ? (
+                  <div style={{width:'100%', height:'160px', background:'linear-gradient(135deg, #f0fdf4, #dcfce7)', borderRadius:'8px', display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', gap:'8px'}}>
+                    <span style={{fontSize:'2.5rem'}}>📄</span>
+                    <span style={{color:'#16a34a', fontSize:'0.8rem', fontWeight:600, fontFamily:"'Plus Jakarta Sans', sans-serif"}}>
+                      {articleImg.replace('DOMAIN:', '')}
+                    </span>
+                  </div>
+                ) : (
+                  <div style={{width:'100%', height:'160px', background:'linear-gradient(135deg, #f0fdf4, #dcfce7)', borderRadius:'8px', display:'flex', alignItems:'center', justifyContent:'center'}}>
+                    <span style={{color:'#16a34a', fontSize:'0.85rem', fontFamily:"'Plus Jakarta Sans', sans-serif"}}>Article preview unavailable</span>
+                  </div>
+                )}
+              </a>
             ) : (
-              <div style={{ width: "100%", height: "120px", background: "#f0fdf4", border: "1px dashed #16a34a", borderRadius: "8px", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                <span style={{ color: "#16a34a", fontSize: "0.85rem" }}>Article preview unavailable</span>
-              </div>
+              articleImg && !articleImg.startsWith('DOMAIN:') ? (
+                <img
+                  src={articleImg}
+                  alt={title}
+                  style={{width:'100%', height:'160px', objectFit:'cover', borderRadius:'8px'}}
+                  onError={() => {
+                    try {
+                      const domain = new URL(link).hostname.replace('www.', '');
+                      setArticleImg(`DOMAIN:${domain}`);
+                    } catch { setArticleImg(null); }
+                  }}
+                />
+              ) : articleImg?.startsWith('DOMAIN:') ? (
+                <div style={{width:'100%', height:'160px', background:'linear-gradient(135deg, #f0fdf4, #dcfce7)', borderRadius:'8px', display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', gap:'8px'}}>
+                  <span style={{fontSize:'2.5rem'}}>📄</span>
+                  <span style={{color:'#16a34a', fontSize:'0.8rem', fontWeight:600, fontFamily:"'Plus Jakarta Sans', sans-serif"}}>
+                    {articleImg.replace('DOMAIN:', '')}
+                  </span>
+                </div>
+              ) : (
+                <div style={{width:'100%', height:'160px', background:'linear-gradient(135deg, #f0fdf4, #dcfce7)', borderRadius:'8px', display:'flex', alignItems:'center', justifyContent:'center'}}>
+                  <span style={{color:'#16a34a', fontSize:'0.85rem', fontFamily:"'Plus Jakarta Sans', sans-serif"}}>Article preview unavailable</span>
+                </div>
+              )
             )}
           </div>
         ) : null}
