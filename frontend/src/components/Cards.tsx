@@ -672,7 +672,7 @@ export const Cards = ({ onDelete, onUpdate, ...props }: CardsProps) => {
                     style={{width:'100%', height:'160px', objectFit:'cover', borderRadius:'8px'}}
                     onError={() => {
                       try {
-                        const domain = new URL(link).hostname.replace('www.', '');
+                        const domain = new URL(link || '').hostname.replace('www.', '');
                         setArticleImg(`DOMAIN:${domain}`);
                       } catch { setArticleImg(null); }
                     }}
@@ -698,7 +698,7 @@ export const Cards = ({ onDelete, onUpdate, ...props }: CardsProps) => {
                   style={{width:'100%', height:'160px', objectFit:'cover', borderRadius:'8px'}}
                   onError={() => {
                     try {
-                      const domain = new URL(link).hostname.replace('www.', '');
+                      const domain = new URL(link || '').hostname.replace('www.', '');
                       setArticleImg(`DOMAIN:${domain}`);
                     } catch { setArticleImg(null); }
                   }}

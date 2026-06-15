@@ -10,7 +10,6 @@ interface SearchBarProps {
 
 export const SearchBar = ({ onSearch, onSearchStateChange }: SearchBarProps) => {
   const [query, setQuery] = useState("");
-  const [loading, setLoading] = useState(false);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
@@ -18,12 +17,10 @@ export const SearchBar = ({ onSearch, onSearchStateChange }: SearchBarProps) => 
 
     if (query.trim() === "") {
       onSearch(null);
-      setLoading(false);
       onSearchStateChange(false);
       return;
     }
 
-    setLoading(true);
     onSearchStateChange(true);
 
     debounceRef.current = setTimeout(async () => {
@@ -34,7 +31,6 @@ export const SearchBar = ({ onSearch, onSearchStateChange }: SearchBarProps) => 
         console.error("Semantic search failed:", err);
         onSearch([]);
       } finally {
-        setLoading(false);
         onSearchStateChange(false);
       }
     }, 500);
