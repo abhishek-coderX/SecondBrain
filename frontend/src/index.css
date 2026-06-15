@@ -334,3 +334,7 @@ select:focus {
 .prose-message em { font-style: italic; }
 .prose-message code { font-family: monospace; background: rgba(0,0,0,0.06); padding: 1px 5px; border-radius: 4px; font-size: 0.85em; }
 .prose-message a { color: #2563eb; text-decoration: underline; }
+
+/* Hide scrollbars but retain functionality */
+.scrollbar-hide::-webkit-scrollbar { display: none; }
+.scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }

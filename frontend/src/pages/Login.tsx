@@ -6,7 +6,7 @@ import { setUser } from "../store/authSlice";
 import { useNavigate } from "react-router-dom";
 
 const LoginSignup = () => {
-  const [username, setUsername] = useState("luffy");
+  const [username, setUsername] = useState("Demo");
   const [password, setPassword] = useState("@#Abhi2330");
   const [err, setErr] = useState("");
   const [isLoginForm, setIsLoginForm] = useState(true);

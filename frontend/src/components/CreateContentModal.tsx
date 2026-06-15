@@ -32,7 +32,7 @@ function DescriptionField({
         className="bento-textarea min-h-[96px]"
       />
       {showHint ? (
-        <p className="mt-1.5 text-xs text-slate-400">
+        <p className="mt-1.5 text-slate-400" style={{ fontSize: '0.7rem', opacity: 0.6 }}>
           💡 Tip: A good description helps your AI assistant answer questions accurately. Describe the key ideas, concepts, and why you saved this.
         </p>
       ) : null}
@@ -172,7 +172,6 @@ export function CreateContentModal({ open, onClose, onContentAdded, defaultType 
         <div className="flex flex-shrink-0 items-center justify-between border-b border-[rgba(125,105,86,0.14)] px-4 py-4">
           <div>
             <p className="bento-heading text-2xl text-slate-900">Add to your brain</p>
-            <p className="mt-0.5 text-xs text-slate-500">Capture a new block without changing your current workflow.</p>
           </div>
           <button className="flex h-9 w-9 items-center justify-center rounded-full bg-black/5 text-slate-600" onClick={onClose}>
             <X className="h-4 w-4" />
@@ -181,7 +180,7 @@ export function CreateContentModal({ open, onClose, onContentAdded, defaultType 
 
         {/* Scrollable form body */}
         <form onSubmit={handleSubmit} className="flex min-h-0 flex-1 flex-col">
-          <div className="flex-1 overflow-y-auto p-4">
+          <div className="flex-1 overflow-y-auto p-4 scrollbar-hide">
             <div>
               <label className="bento-label">Content Type</label>
               <div className="grid gap-2 sm:grid-cols-4">
