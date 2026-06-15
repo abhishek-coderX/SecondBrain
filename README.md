@@ -1,118 +1,82 @@
 # SecondBrain 🧠
 
-A RAG-based personal knowledge management system. Save YouTube videos, tweets, articles, and thoughts — then semantically search and chat with your saved content using AI.
+A modern, RAG-based personal knowledge management system. Capture YouTube videos, tweets, web articles, and private thoughts — then semantically search and interact with your saved content using Google Gemini.
 
-## Live Demo
-🔗 [secondbrain-app.vercel.app](#) <!-- update after deployment -->
+## 🚀 Live Demo
 
-🎯 **Demo Account** — Username: `demo` | Password: `Demo@1234`
+* **Frontend App:** [https://secondbrain-frontend-steel.vercel.app/](https://secondbrain-frontend-steel.vercel.app/) (Hosted on Vercel)
+* **Backend API:** [https://secondbrain-backend-39l6.onrender.com/](https://secondbrain-backend-39l6.onrender.com/) (Hosted on Render)
 
-## Features
-- 🧠 **Ask Your Brain** — RAG chat grounded in your saved content with Google Search fallback
-- 🔍 **Semantic Search** — Search by meaning using Gemini embeddings, not just keywords
-- 📦 **Capture Everything** — YouTube videos, tweets, articles, and raw thoughts
-- 💬 **Chat History** — Persistent conversation sessions with search
-- 🏷️ **Tag Filtering** — Organize and filter content by tags and type
-- 🔗 **Share Brain** — Generate public share links for curated collections
-- ✏️ **Full CRUD** — Edit cards with auto embedding regeneration
-- 🌐 **Web Search Fallback** — Answers from web when brain has no context
+---
 
-## Tech Stack
+## ✨ Features
 
-**Backend:** Node.js · Express.js · TypeScript · MongoDB · Mongoose · JWT · Zod · Google Gemini API
+- **Omnivorous Capture:** Save YouTube videos, Twitter tweets, web articles, and raw thoughts in one beautiful masonry dashboard.
+- **Semantic Search:** Find saved content by meaning rather than exact keywords, powered by Google Gemini embeddings (`gemini-embedding-2`, 3072 dimensions).
+- **Ask Your Brain:** Interactive chat assistant that retrieves your saved notes and answers queries in context using Retrieval-Augmented Generation (RAG).
+- **Web Grounding Fallback:** When your SecondBrain doesn't have the answer, the assistant performs real-time Google Search grounding to provide accurate, up-to-date web information.
+- **Persistent Chat History:** Multiple conversation sessions stored securely in MongoDB and organized inside an interactive chat sidebar.
+- **Public Share Links:** Generate shareable, static collections to share your knowledge base with anyone.
+- **Bento Grid Aesthetics:** Premium UI featuring glassmorphism, responsive masonry layouts, and smooth animations.
 
-**Frontend:** React · TypeScript · Vite · Tailwind CSS · Redux Toolkit · Axios · React Markdown · React Masonry CSS
+---
 
-## RAG Architecture
-Save content
+## 🛠️ Tech Stack
 
-→ Build embedding text (title + description + type)
+* **Backend:** Node.js, Express, TypeScript, MongoDB + Mongoose, JSON Web Tokens (JWT) inside HttpOnly cookies, Zod, and Google Gen AI SDK.
+* **Frontend:** React, Redux Toolkit (state management), Vite, Tailwind CSS, Axios, Lucide React, and React Markdown.
 
-→ Generate Gemini embedding (3072 dimensions)
+---
 
-→ Store vector in MongoDB (select: false)
-User asks question
+## 📐 RAG Architecture & Ingestion Pipeline
 
-→ Classify intent (GREETING / META / FOLLOWUP / SPECIFIC)
+### 1. Ingestion Pipeline
+```
+[User Action] ➔ Save Content ➔ Extract Metadata ➔ Combine fields (Title + Desc + Link) ➔ Embed text (Gemini API) ➔ Store 3072d Vector in MongoDB
+```
 
-→ Embed query → Cosine similarity search
+### 2. Retrieval & Q&A (RAG) Pipeline
+```
+[User Question] ➔ Intent Classifier ➔ Generate Search Vector ➔ Cosine Similarity Search ➔ Retrieve top matched items ➔ Feed context to Gemini-2.5-Flash ➔ Formulate Grounded Answer with Citations
+```
 
-→ Feed top matches as context to Gemini 2.5 Flash
+---
 
-→ Grounded answer with source citations
+## ⚙️ Environment Configuration
 
-→ Fallback to Google Search if brain has no context
+### Backend `.env`
+```ini
+MONGO_URI="your-mongodb-atlas-uri"
+JWT_SECRET="your-jwt-signing-secret"
+GEMINI_API_KEY="your-google-gemini-api-key"
+ALLOWED_ORIGIN="https://secondbrain-frontend-steel.vercel.app"
+NODE_ENV="production"
+```
 
-→ Save to persistent chat session
+### Frontend `.env`
+```ini
+VITE_API_URL="https://secondbrain-backend-39l6.onrender.com"
+```
 
-## Local Setup
+---
 
-**Prerequisites:** Node.js 18+, MongoDB running locally
+## 💻 Local Development Setup
 
-**Backend**
+### 1. Clone & Setup Backend
 ```bash
 cd backend
 npm install
-cp .env.example .env   # fill in your values
 npm run dev
 ```
 
-**Frontend**
+### 2. Setup Frontend
 ```bash
 cd frontend
 npm install
-cp .env.example .env
 npm run dev
 ```
 
-**Backend `.env`**
+---
 
-MONGO_URI=mongodb://localhost:27017/secondBrain
-
-JWT_SECRET=your_jwt_secret_here
-
-GEMINI_API_KEY=your_gemini_api_key_here
-
-ALLOWED_ORIGIN=http://localhost:5173
-
-NODE_ENV=development
-**Frontend `.env`**
-VITE_API_URL=http://localhost:4000
-
-## Project Structure
-SecondBrain/
-
-├── backend/
-
-│   ├── src/
-
-│   │   ├── config/        # DB connection
-
-│   │   ├── middlewares/   # Auth, validation
-
-│   │   ├── model/         # MongoDB schemas
-
-│   │   ├── routes/        # API endpoints
-
-│   │   └── utils/         # Embeddings, LLM, helpers
-
-│   └── package.json
-
-├── frontend/
-
-│   ├── src/
-
-│   │   ├── components/    # UI components
-
-│   │   ├── pages/         # Route pages
-
-│   │   ├── store/         # Redux store
-
-│   │   └── utils/         # API client
-
-│   └── package.json
-
-└── README.md
-
-## Author
-[abhishek-coderX](https://github.com/abhishek-coderX)
+## 👤 Author
+Developed with ❤️ by [abhishek-coderX](https://github.com/abhishek-coderX)
