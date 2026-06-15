@@ -372,6 +372,22 @@ interface CardsProps extends Content {
   onUpdate?: (updated: Content) => void;
 }
 
+const isGenericPlaceholder = (url?: string) => {
+  if (!url) return true;
+  const lowercase = url.toLowerCase();
+  return (
+    lowercase.includes("logo") ||
+    lowercase.includes("favicon") ||
+    lowercase.includes("avatar") ||
+    lowercase.includes("profile") ||
+    lowercase.includes("silhouette") ||
+    lowercase.includes("by-nc") ||
+    lowercase.includes("creativecommons") ||
+    lowercase.includes("license") ||
+    lowercase.includes("default")
+  );
+};
+
 const getYoutubeId = (link?: string) => {
   if (link?.includes("youtube.com/watch?v=")) return link.split("v=")[1]?.split("&")[0];
   if (link?.includes("youtu.be/")) return link.split("youtu.be/")[1]?.split("?")[0];
@@ -384,7 +400,9 @@ export const Cards = ({ onDelete, onUpdate, ...props }: CardsProps) => {
   const [showEditModal, setShowEditModal] = useState(false);
 
   // Article OG image state
-  const [articleImg, setArticleImg] = useState<string | null>(thumbnail || null);
+  const [articleImg, setArticleImg] = useState<string | null>(
+    thumbnail && !isGenericPlaceholder(thumbnail) ? thumbnail : null
+  );
   const [imgLoading, setImgLoading] = useState(false);
 
   const videoId = getYoutubeId(link);
@@ -407,7 +425,7 @@ export const Cards = ({ onDelete, onUpdate, ...props }: CardsProps) => {
 
   useEffect(() => {
     if (type !== 'article' || !link) return;
-    setArticleImg(thumbnail || null);
+    setArticleImg(thumbnail && !isGenericPlaceholder(thumbnail) ? thumbnail : null);
   }, [link, type, thumbnail]);
 
   useEffect(() => {
@@ -421,7 +439,7 @@ export const Cards = ({ onDelete, onUpdate, ...props }: CardsProps) => {
           `https://api.linkpreview.net/?key=free&q=${encodeURIComponent(link)}`
         );
         const d = await r.json();
-        if (d?.image && !d.image.includes('logo') && !d.image.includes('favicon')) {
+        if (d?.image && !isGenericPlaceholder(d.image)) {
           setArticleImg(d.image);
           return;
         }
@@ -432,7 +450,7 @@ export const Cards = ({ onDelete, onUpdate, ...props }: CardsProps) => {
         const r = await fetch(`https://api.microlink.io?url=${encodeURIComponent(link)}`);
         const d = await r.json();
         const img = d?.data?.image?.url;
-        if (img && !img.includes('logo') && img.includes('http')) {
+        if (img && !isGenericPlaceholder(img) && img.includes('http')) {
           setArticleImg(img);
           return;
         }
@@ -446,7 +464,7 @@ export const Cards = ({ onDelete, onUpdate, ...props }: CardsProps) => {
     };
 
     fetchImage().finally(() => setImgLoading(false));
-  }, [link, type, thumbnail]);
+  }, [link, type, articleImg, thumbnail]);
 
   const cfg = typeConfig[type] ?? typeConfig.article;
   const TypeIcon = cfg.icon;
