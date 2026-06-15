@@ -26,7 +26,14 @@ const allowedOrigins = [
 
 app.use(cors({
   origin(origin: string | undefined, callback: (err: Error | null, allow?: boolean) => void) {
-    if (!origin || allowedOrigins.includes(origin)) {
+    if (!origin) {
+      return callback(null, true);
+    }
+    const normalizedOrigin = origin.replace(/\/$/, "");
+    const isAllowed = allowedOrigins.some(
+      (allowed) => allowed.replace(/\/$/, "") === normalizedOrigin
+    );
+    if (isAllowed) {
       return callback(null, true);
     }
     return callback(new Error("CORS blocked for this origin"));
