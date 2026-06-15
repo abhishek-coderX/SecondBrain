@@ -29,7 +29,7 @@ const titleColors: Record<ContentType, string> = {
   article: "#16a34a",
   youtube: "#dc2626",
   twitter: "#2563eb",
-  thought: "#9333ea",
+  thought: "#a16207",
 };
 
 const typeConfig = {
@@ -51,7 +51,7 @@ const typeConfig = {
   thought: {
     label: "Thought",
     icon: Quote,
-    accentClass: "bg-[rgba(234,88,12,0.08)] text-[#c2410c] border-[rgba(234,88,12,0.16)]",
+    accentClass: "bg-[rgba(202,138,4,0.08)] text-[#854d0e] border-[rgba(202,138,4,0.16)]",
   },
 };
 

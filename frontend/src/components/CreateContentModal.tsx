@@ -52,7 +52,7 @@ const contentTypes: { value: ContentType; label: string; icon: React.ElementType
   { value: "youtube", label: "Video", icon: Video, tone: "bg-[rgba(220,38,38,0.08)] text-[#b91c1c]" },
   { value: "twitter", label: "Twitter", icon: Link2, tone: "bg-[rgba(29,155,240,0.08)] text-[#0369a1]" },
   { value: "article", label: "Article", icon: FileText, tone: "bg-[rgba(22,163,74,0.08)] text-[#166534]" },
-  { value: "thought", label: "Thought", icon: PenSquare, tone: "bg-[rgba(234,88,12,0.08)] text-[#c2410c]" },
+  { value: "thought", label: "Thought", icon: PenSquare, tone: "bg-[rgba(202,138,4,0.08)] text-[#854d0e]" },
 ];
 
 interface FormState {
