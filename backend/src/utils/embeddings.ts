@@ -10,9 +10,10 @@ const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY! });
  * Uses Gemini gemini-embedding-2 (3072 dimensions).
  *
  * @param text - The text to embed
+ * @param customApiKey - Optional custom API key to override the server default
  * @returns A number array (vector) of 3072 dimensions
  */
-export async function getEmbedding(text: string): Promise<number[]> {
+export async function getEmbedding(text: string, customApiKey?: string): Promise<number[]> {
   if (!text || text.trim().length === 0) {
     throw new Error("Cannot generate embedding for empty text");
   }
@@ -20,11 +21,13 @@ export async function getEmbedding(text: string): Promise<number[]> {
   // Truncate very long text to stay within token limits
   const truncated = text.slice(0, 24000);
 
+  const aiInstance = customApiKey ? new GoogleGenAI({ apiKey: customApiKey }) : ai;
+
   let attempts = 3;
   let delay = 1000;
   for (let i = 0; i < attempts; i++) {
     try {
-      const result = await ai.models.embedContent({
+      const result = await aiInstance.models.embedContent({
         model: "gemini-embedding-2",
         contents: truncated,
       });

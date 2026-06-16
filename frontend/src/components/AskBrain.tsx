@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from "react";
+import { createPortal } from "react-dom";
 import ReactMarkdown from "react-markdown";
-import { Bot, Send, Plus, Trash2, PanelLeftClose, PanelLeftOpen } from "lucide-react";
+import { Bot, Send, Plus, Trash2, PanelLeftClose, PanelLeftOpen, X, Square } from "lucide-react";
 import api from "../utils/api";
 import type { Content } from "../types/type";
 import { YoutubeIcon } from "./icons/Youtube";
@@ -13,6 +14,7 @@ interface Message {
   references?: Content[];
   webSources?: { title: string; url: string }[];
   source?: 'brain' | 'web' | 'greeting';
+  showApiKeyPrompt?: boolean;
 }
 
 export const AskBrain = () => {
@@ -28,40 +30,127 @@ export const AskBrain = () => {
   const [currentSessionId, setCurrentSessionId] = useState<string | null>(null);
   const [showSidebar, setShowSidebar] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const [showApiKeyModal, setShowApiKeyModal] = useState(false);
+  const [hasCustomKey, setHasCustomKey] = useState(false);
+  const [apiKeyInput, setApiKeyInput] = useState('');
+  const [apiKeySaving, setApiKeySaving] = useState(false);
+  const [streamingText, setStreamingText] = useState('');
+  const [isStreaming, setIsStreaming] = useState(false);
   const chatEndRef = useRef<HTMLDivElement | null>(null);
+  const inputRef = useRef<HTMLTextAreaElement | null>(null);
   const initializedRef = useRef(false);
+
+  const streamIntervalRef = useRef<any>(null);
+  const abortControllerRef = useRef<AbortController | null>(null);
+  const streamingTextRef = useRef('');
+  const currentReferencesRef = useRef<Content[]>([]);
+  const currentWebSourcesRef = useRef<{ title: string; url: string }[]>([]);
+  const currentSourceRef = useRef<'brain' | 'web' | 'greeting' | undefined>(undefined);
+  const scrollContainerRef = useRef<HTMLDivElement | null>(null);
 
   const filteredSessions = sessions.filter(s => 
     (s.title || "New Chat").toLowerCase().includes(searchQuery.toLowerCase())
   );
 
+  const preprocessText = (text: string) => {
+    if (!text) return "";
+    return text.replace(/\(Source:\s*([^)]+)\)/gi, (_, title) => {
+      const cleanTitle = title.trim().replace(/^["']|["']$/g, '');
+      return `\n\n  📌 **Source:** \`${cleanTitle}\``;
+    });
+  };
+
+  const isNearBottom = () => {
+    const container = scrollContainerRef.current;
+    if (!container) return true;
+    const threshold = 150; // pixels
+    const distanceToBottom = container.scrollHeight - container.scrollTop - container.clientHeight;
+    return distanceToBottom <= threshold;
+  };
+
+  const scrollToBottom = (force = false) => {
+    const container = scrollContainerRef.current;
+    if (!container) return;
+    if (force || isNearBottom()) {
+      container.scrollTop = container.scrollHeight;
+    }
+  };
+
   useEffect(() => {
-    chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages, loading]);
+    scrollToBottom(true);
+  }, [messages]);
+
+  useEffect(() => {
+    if (loading) {
+      scrollToBottom(true);
+    }
+  }, [loading]);
+
+  useEffect(() => {
+    scrollToBottom(false);
+  }, [streamingText]);
+
+  const handleStop = () => {
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+      abortControllerRef.current = null;
+    }
+
+    if (streamIntervalRef.current) {
+      clearInterval(streamIntervalRef.current);
+      streamIntervalRef.current = null;
+    }
+
+    if (isStreaming && streamingTextRef.current) {
+      setMessages(prev => [...prev, {
+        sender: 'bot',
+        text: streamingTextRef.current,
+        references: currentReferencesRef.current,
+        webSources: currentWebSourcesRef.current,
+        source: currentSourceRef.current
+      }]);
+    }
+
+    setStreamingText('');
+    streamingTextRef.current = '';
+    setIsStreaming(false);
+    setLoading(false);
+
+    setTimeout(() => {
+      inputRef.current?.focus();
+    }, 50);
+  };
+
+  useEffect(() => {
+    return () => {
+      if (streamIntervalRef.current) {
+        clearInterval(streamIntervalRef.current);
+      }
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort();
+      }
+    };
+  }, []);
+
+  useEffect(() => {
+    setTimeout(() => {
+      inputRef.current?.focus();
+    }, 100);
+  }, [currentSessionId]);
+
+  useEffect(() => {
+    api.get('/settings/api-key')
+      .then(res => setHasCustomKey(res.data.hasCustomKey))
+      .catch(() => {});
+  }, []);
 
   useEffect(() => {
     if (initializedRef.current) return;
     initializedRef.current = true;
     
-    const init = async () => {
-      try {
-        const res = await api.get('/sessions');
-        setSessions(res.data);
-        // Always start with a fresh new chat
-        const newSession = await api.post('/sessions');
-        setCurrentSessionId(newSession.data._id);
-        setMessages([{
-          sender: 'bot',
-          text: "Hello! Ask me anything about your saved content.",
-          references: []
-        }]);
-        const refreshed = await api.get("/sessions");
-        setSessions(refreshed.data);
-      } catch (err) {
-        console.error("Failed to init AskBrain sessions:", err);
-      }
-    };
-    init();
+    api.get('/sessions')
+      .then(res => setSessions(res.data))
+      .catch(() => {});
   }, []);
 
   const handleSelectSession = async (id: string) => {
@@ -95,25 +184,14 @@ export const AskBrain = () => {
     }
   };
 
-  const handleNewChat = async () => {
-    try {
-      setLoading(true);
-      const newSession = await api.post("/sessions");
-      setCurrentSessionId(newSession.data._id);
-      setMessages([
-        {
-          sender: "bot",
-          text: "Hello! Ask me anything about the content stored in your SecondBrain. I will find relevant notes and answer your question based on them.",
-        },
-      ]);
-      // Re-fetch sessions to update sidebar list
-      const res = await api.get("/sessions");
-      setSessions(res.data);
-    } catch (err) {
-      console.error("Failed to create new session:", err);
-    } finally {
-      setLoading(false);
-    }
+  const handleNewChat = () => {
+    setCurrentSessionId(null);
+    setMessages([
+      {
+        sender: "bot",
+        text: "Hello! Ask me anything about the content stored in your SecondBrain. I will find relevant notes and answer your question based on them.",
+      },
+    ]);
   };
 
   const handleDeleteSession = async (id: string) => {
@@ -134,42 +212,120 @@ export const AskBrain = () => {
 
     const userQuestion = input.trim();
     setInput("");
+    
+    if (inputRef.current) {
+      inputRef.current.style.height = "auto";
+      inputRef.current.style.overflowY = "hidden";
+    }
+
     setMessages((prev) => [...prev, { sender: "user", text: userQuestion }]);
     setLoading(true);
 
+    let activeSessionId = currentSessionId;
+    
+    const controller = new AbortController();
+    abortControllerRef.current = controller;
+
     try {
+      if (!activeSessionId) {
+        const newSession = await api.post('/sessions', {}, { signal: controller.signal });
+        activeSessionId = newSession.data._id;
+        setCurrentSessionId(activeSessionId);
+        setSessions(prev => [newSession.data, ...prev]);
+      }
+
       const response = await api.post("/ask", {
         question: userQuestion,
-        history: messages.slice(-6).map((m) => ({
-          role: m.sender === "user" ? "user" : "assistant",
-          content: m.text,
-        })),
-        sessionId: currentSessionId,
+        history: messages
+          .filter(m => !m.text.includes('Hello! Ask me'))
+          .slice(-8)
+          .map(m => ({
+            role: m.sender === 'user' ? 'user' : 'assistant',
+            content: m.text
+          })),
+        sessionId: activeSessionId,
+      }, {
+        signal: controller.signal
       });
-      setMessages((prev) => [
-        ...prev,
-        {
-          sender: "bot",
-          text: response.data.answer,
-          references: response.data.references,
-          webSources: response.data.webSources,
-          source: response.data.source,
-        },
-      ]);
-      // Refresh session list to show updated title and dates
+
+      abortControllerRef.current = null;
+
+      const fullText = response.data.answer;
+      
+      currentReferencesRef.current = response.data.references || [];
+      currentWebSourcesRef.current = response.data.webSources || [];
+      currentSourceRef.current = response.data.source;
+
+      setIsStreaming(true);
+      setStreamingText('');
+      streamingTextRef.current = '';
+
+      let i = 0;
+      streamIntervalRef.current = setInterval(() => {
+        if (i < fullText.length) {
+          const nextText = fullText.slice(0, i + 1);
+          setStreamingText(nextText);
+          streamingTextRef.current = nextText;
+          i++;
+        } else {
+          clearInterval(streamIntervalRef.current);
+          streamIntervalRef.current = null;
+          setIsStreaming(false);
+          setStreamingText('');
+          streamingTextRef.current = '';
+          setMessages(prev => [...prev, {
+            sender: 'bot',
+            text: fullText,
+            references: currentReferencesRef.current,
+            webSources: currentWebSourcesRef.current,
+            source: currentSourceRef.current
+          }]);
+          setLoading(false);
+          setTimeout(() => {
+            inputRef.current?.focus();
+          }, 50);
+        }
+      }, 8);
+
       const res = await api.get("/sessions");
       setSessions(res.data);
-    } catch (error) {
+    } catch (error: any) {
+      if (error?.name === 'CanceledError' || error?.name === 'AbortError' || error?.message === 'canceled') {
+        return;
+      }
+      
+      abortControllerRef.current = null;
       console.error("Failed to ask brain:", error);
-      setMessages((prev) => [
-        ...prev,
-        {
-          sender: "bot",
-          text: "Sorry, I encountered an error while processing your request. Please check if your backend is running.",
-        },
-      ]);
-    } finally {
+      const isRateLimit = 
+        error?.response?.status === 429 || 
+        error?.response?.status === 503 || 
+        error?.response?.data?.rateLimit ||
+        (error?.response?.data?.message && (
+          error.response.data.message.toLowerCase().includes("rate limit") ||
+          error.response.data.message.toLowerCase().includes("rate-limited") ||
+          error.response.data.message.toLowerCase().includes("quota exceeded")
+        ));
+
+      if (isRateLimit) {
+        setMessages(prev => [...prev, {
+          sender: 'bot',
+          text: "⏳ Gemini API rate limit reached.",
+          references: []
+        }]);
+      } else {
+        const serverMessage = error.response?.data?.message || "Sorry, I encountered an error while processing your request. Please check if your backend is running.";
+        setMessages((prev) => [
+          ...prev,
+          {
+            sender: "bot",
+            text: serverMessage,
+          },
+        ]);
+      }
       setLoading(false);
+      setTimeout(() => {
+        inputRef.current?.focus();
+      }, 50);
     }
   };
 
@@ -190,7 +346,7 @@ export const AskBrain = () => {
     <section className="page-enter bento-card flex h-full w-full flex-row overflow-hidden">
       {/* Sidebar Panel */}
       {showSidebar ? (
-        <div className="w-56 border-r border-[rgba(125,105,86,0.14)] bg-white/40 flex flex-col h-full overflow-hidden">
+        <div className="hidden md:flex w-56 border-r border-[rgba(125,105,86,0.14)] bg-white/40 flex flex-col h-full overflow-hidden">
           {/* New Chat Button */}
           <div className="p-4 border-b border-[rgba(125,105,86,0.14)]">
             <button
@@ -273,20 +429,45 @@ export const AskBrain = () => {
       {/* Main Chat Panel */}
       <div className="flex-1 flex flex-col h-full min-w-0 bg-white/10">
         {/* Toggle Sidebar Button Header */}
-        <div className="flex items-center justify-between border-b border-[rgba(125,105,86,0.14)] bg-white/30 px-5 py-2">
+        <div className="flex items-center justify-center md:justify-between border-b border-[rgba(125,105,86,0.14)] bg-white/30 px-5 py-2">
           <button
             onClick={() => setShowSidebar((prev) => !prev)}
-            className="flex h-8 w-8 items-center justify-center rounded-lg border border-[rgba(125,105,86,0.14)] bg-white/80 hover:bg-white text-slate-600 transition"
+            className="hidden md:flex h-8 w-8 items-center justify-center rounded-lg border border-[rgba(125,105,86,0.14)] bg-white/80 hover:bg-white text-slate-600 transition"
             title={showSidebar ? "Hide Sidebar" : "Show Sidebar"}
           >
             {showSidebar ? <PanelLeftClose className="h-4 w-4" /> : <PanelLeftOpen className="h-4 w-4" />}
           </button>
-          <span className="text-sm font-semibold text-slate-700">SecondBrain Chat</span>
-          <div className="w-8" />
+          
+          <div className="flex items-center gap-2">
+            <span className="text-sm font-semibold text-slate-700">SecondBrain Chat</span>
+            <button
+              type="button"
+              onClick={() => setShowApiKeyModal(true)}
+              title={hasCustomKey ? "Using your Gemini key" : "Add your Gemini API key"}
+              className={`flex-shrink-0 bento-button whitespace-nowrap text-xs md:text-sm ${
+                hasCustomKey
+                  ? "border-green-200 bg-green-50 text-green-600 hover:bg-green-100"
+                  : "bento-button-secondary text-orange-700 border-orange-200 bg-orange-50/50 hover:bg-orange-50"
+              }`}
+              style={{
+                minHeight: '36px',
+                height: '36px',
+                padding: '0 12px',
+                borderRadius: '12px'
+              }}
+            >
+              🔑 {hasCustomKey ? 'Your key' : 'Add key'}
+            </button>
+          </div>
+
+          <div className="hidden md:block w-8" />
         </div>
 
         {/* Message Container */}
-        <div className="flex-1 space-y-5 overflow-y-auto p-5 md:p-6">
+        <div 
+          ref={scrollContainerRef}
+          className="flex-1 space-y-5 overflow-y-auto p-5 md:p-6"
+        >
           {messages.map((msg, index) => {
             const isUser = msg.sender === "user";
             return (
@@ -304,7 +485,7 @@ export const AskBrain = () => {
                     }`}
                   >
                     <div className="prose-message text-left">
-                      <ReactMarkdown>{msg.text}</ReactMarkdown>
+                      <ReactMarkdown>{preprocessText(msg.text)}</ReactMarkdown>
                     </div>
                   </div>
 
@@ -339,7 +520,7 @@ export const AskBrain = () => {
                     </div>
                   )}
 
-                  {!isUser && index > 0 && msg.references && msg.references.length > 0 ? (
+                  {!isUser && msg.references && msg.references.length > 0 ? (
                     <div className="mt-3 flex flex-wrap gap-2">
                       {msg.references.slice(0, 2).map((ref) => (
                         <a
@@ -355,12 +536,51 @@ export const AskBrain = () => {
                       ))}
                     </div>
                   ) : null}
+
+                  {!isUser && msg.showApiKeyPrompt && (
+                    <button
+                      type="button"
+                      onClick={() => setShowApiKeyModal(true)}
+                      style={{
+                        marginTop: '8px',
+                        padding: '8px 16px',
+                        background: 'rgba(251,146,60,0.1)',
+                        border: '1px solid rgba(251,146,60,0.3)',
+                        borderRadius: '8px',
+                        color: '#92400e',
+                        fontSize: '0.8rem',
+                        cursor: 'pointer',
+                        fontFamily: "'Plus Jakarta Sans', sans-serif",
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '6px'
+                      }}
+                    >
+                      🔑 Add your API key →
+                    </button>
+                  )}
                 </div>
               </div>
             );
           })}
 
-          {loading ? (
+          {isStreaming && (
+            <div className="flex gap-4 flex-row justify-start">
+              <div className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-2xl bg-[rgba(240,169,120,0.18)] text-[#995026]">
+                <Bot className="h-5 w-5" />
+              </div>
+              <div className="max-w-3xl items-start flex flex-col">
+                <div className="rounded-[24px] px-5 py-4 text-sm leading-7 border border-[rgba(125,105,86,0.14)] bg-white/75 text-slate-700">
+                  <div className="prose-message text-left">
+                    <ReactMarkdown>{preprocessText(streamingText)}</ReactMarkdown>
+                    <span className="inline-block w-1.5 h-4 bg-slate-400 ml-1.5 animate-pulse" />
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {loading && !isStreaming ? (
             <div className="flex gap-4">
               <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-[rgba(240,169,120,0.18)] text-[#995026]">
                 <Bot className="h-5 w-5" />
@@ -379,22 +599,163 @@ export const AskBrain = () => {
 
         {/* Message Input Form */}
         <form onSubmit={handleSend} className="border-t border-[rgba(125,105,86,0.14)] p-5 md:p-6">
-          <div className="flex flex-col gap-3 sm:flex-row">
-            <input
-              type="text"
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
+            <textarea
+              ref={inputRef}
               value={input}
-              onChange={(e) => setInput(e.target.value)}
+              onChange={(e) => {
+                setInput(e.target.value);
+                // Auto grow
+                e.target.style.height = 'auto';
+                const sHeight = e.target.scrollHeight;
+                e.target.style.height = `${sHeight}px`;
+                if (sHeight > 120) {
+                  e.target.style.overflowY = 'auto';
+                } else {
+                  e.target.style.overflowY = 'hidden';
+                }
+              }}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && !e.shiftKey) {
+                  e.preventDefault();
+                  if (input.trim() && !loading) {
+                    const fakeEvent = { preventDefault: () => {} } as React.FormEvent;
+                    handleSend(fakeEvent);
+                  }
+                }
+              }}
               placeholder="Ask a question about your notes..."
               disabled={loading}
-              className="bento-input flex-1"
+              rows={1}
+              className="bento-textarea flex-1 py-3 px-4 resize-none min-h-[46px] max-h-[120px]"
+              style={{
+                fontFamily: "'Plus Jakarta Sans', sans-serif",
+                fontSize: '0.95rem',
+                lineHeight: '1.4',
+                overflowY: 'hidden'
+              }}
             />
-            <button type="submit" disabled={loading || !input.trim()} className="bento-button bento-button-primary sm:min-w-[140px]">
-              <Send className="h-4 w-4" />
-              Send
-            </button>
+            {loading || isStreaming ? (
+              <button
+                type="button"
+                onClick={handleStop}
+                className="bento-button bg-slate-800 hover:bg-slate-900 text-white sm:min-w-[140px] flex-shrink-0 transition-colors"
+              >
+                <Square className="h-4 w-4 fill-white" />
+                Stop
+              </button>
+            ) : (
+              <button
+                type="submit"
+                disabled={!input.trim()}
+                className={`bento-button sm:min-w-[140px] flex-shrink-0 transition-colors ${
+                  input.trim()
+                    ? "bento-button-primary"
+                    : "bg-slate-100 text-slate-400 border border-slate-200/50 cursor-not-allowed"
+                }`}
+              >
+                <Send className="h-4 w-4" />
+                Send
+              </button>
+            )}
           </div>
         </form>
       </div>
+
+      {showApiKeyModal && createPortal(
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/35 p-4 backdrop-blur-sm" onClick={() => setShowApiKeyModal(false)}>
+          <div className="bento-card flex w-full max-w-md flex-col overflow-hidden" onClick={(e) => e.stopPropagation()}>
+            {/* Header */}
+            <div className="flex flex-shrink-0 items-center justify-between border-b border-[rgba(125,105,86,0.14)] px-4 py-4">
+              <div>
+                <p className="bento-heading text-2xl text-slate-900">Connect Gemini API Key</p>
+              </div>
+              <button 
+                type="button"
+                className="flex h-9 w-9 items-center justify-center rounded-full bg-black/5 text-slate-600 hover:bg-black/10 transition" 
+                onClick={() => setShowApiKeyModal(false)}
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            {/* Body */}
+            <div className="p-5 flex-1 overflow-y-auto">
+              <div className="mb-3">
+                <label className="bento-label">Gemini API Key</label>
+                <input
+                  type="password"
+                  value={apiKeyInput}
+                  onChange={e => setApiKeyInput(e.target.value)}
+                  placeholder={hasCustomKey ? "•••••••••••••••• (Key saved)" : "AIza..."}
+                  className="bento-input text-sm"
+                />
+              </div>
+
+              <div>
+                <a
+                  href="https://aistudio.google.com/app/apikey"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-xs text-[#92400e] hover:underline font-semibold"
+                >
+                  Get your API Key →
+                </a>
+              </div>
+            </div>
+
+            {/* Footer */}
+            <div className="flex flex-shrink-0 gap-3 border-t border-[rgba(125,105,86,0.14)] px-4 py-4 flex-col sm:flex-row">
+              {hasCustomKey && (
+                <button
+                  type="button"
+                  onClick={async () => {
+                    await api.delete('/settings/api-key');
+                    setHasCustomKey(false);
+                    setApiKeyInput('');
+                    setShowApiKeyModal(false);
+                  }}
+                  className="bento-button bento-button-secondary border-red-200 bg-red-50 text-red-600 hover:bg-red-100 flex-1 py-2"
+                >
+                  Remove Key
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={() => setShowApiKeyModal(false)}
+                className="bento-button bento-button-secondary flex-1 py-2"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={!apiKeyInput.trim() || apiKeySaving}
+                onClick={async () => {
+                  setApiKeySaving(true);
+                  try {
+                    await api.post('/settings/api-key', { geminiApiKey: apiKeyInput.trim() });
+                    setHasCustomKey(true);
+                    setShowApiKeyModal(false);
+                    setApiKeyInput('');
+                  } catch {
+                    alert('Failed to save API key');
+                  } finally {
+                    setApiKeySaving(false);
+                  }
+                }}
+                className={`bento-button flex-1 py-2 ${
+                  apiKeyInput.trim() 
+                    ? 'bento-button-primary' 
+                    : 'bg-slate-100 text-slate-400 border border-slate-200/50 cursor-not-allowed'
+                }`}
+              >
+                {apiKeySaving ? "Saving..." : "Save Key"}
+              </button>
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
     </section>
   );
 };

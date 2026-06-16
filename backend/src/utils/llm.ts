@@ -12,15 +12,20 @@ export const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY! });
  *
  * @param question          - The user's query
  * @param systemInstruction - The complete system prompt (including context)
+ * @param useWebSearch      - Whether to enable Google Search grounding
+ * @param customApiKey      - Optional custom API key override
  */
 export async function generateAnswer(
   question: string,
   systemInstruction: string,
-  useWebSearch: boolean = false
+  useWebSearch: boolean = false,
+  customApiKey?: string
 ): Promise<{ text: string; groundingChunks?: any[] }> {
   if (!question || question.trim().length === 0) {
     throw new Error("Question cannot be empty");
   }
+
+  const aiInstance = customApiKey ? new GoogleGenAI({ apiKey: customApiKey }) : ai;
 
   let attempts = 3;
   let delay = 1000;
@@ -36,7 +41,7 @@ export async function generateAnswer(
         config.tools = [{ googleSearch: {} }];
       }
 
-      const response = await ai.models.generateContent({
+      const response = await aiInstance.models.generateContent({
         model: "gemini-2.5-flash",
         contents: question,
         config,

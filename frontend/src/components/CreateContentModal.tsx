@@ -166,8 +166,8 @@ export function CreateContentModal({ open, onClose, onContentAdded, defaultType 
   if (!open) return null;
 
   return createPortal(
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/35 p-4 backdrop-blur-sm" onClick={onClose}>
-      <div className="bento-card flex w-full max-w-md flex-col overflow-hidden" style={{ maxHeight: '85vh' }} onClick={(e) => e.stopPropagation()}>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/35 p-0 md:p-4 backdrop-blur-sm" onClick={onClose}>
+      <div className="bento-card flex w-full h-full md:h-auto md:max-w-md flex-col overflow-hidden rounded-none md:rounded-[24px] max-h-screen md:max-h-[85vh]" onClick={(e) => e.stopPropagation()}>
         {/* Header — always visible */}
         <div className="flex flex-shrink-0 items-center justify-between border-b border-[rgba(125,105,86,0.14)] px-4 py-4">
           <div>

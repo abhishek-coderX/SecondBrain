@@ -1,7 +1,9 @@
 import { Router } from "express";
 import { authMiddleware, AuthRequest } from "../middlewares/auth";
 import Content from "../model/content";
+import User from "../model/user";
 import { getEmbedding, cosineSimilarity } from "../utils/embeddings";
+import { decrypt } from "../utils/crypto";
 
 const searchRouter = Router();
 
@@ -16,7 +18,16 @@ searchRouter.get("/search", async (req: AuthRequest, res) => {
       return res.status(400).json({ message: "Search query is required." });
     }
 
-    // 1. Text search — regex match on title and description
+    const user = await User.findById(userId);
+    let customApiKey: string | undefined;
+    if (user?.geminiApiKey) {
+      try {
+        customApiKey = decrypt(user.geminiApiKey);
+      } catch (err) {
+        console.error("Failed to decrypt user API key, using server default key:", err);
+      }
+    }
+
     const textMatchDocs = await Content.find({
       userId,
       $or: [
@@ -29,36 +40,38 @@ searchRouter.get("/search", async (req: AuthRequest, res) => {
 
     const textMatchIds = new Set(textMatchDocs.map((d: any) => d._id.toString()));
 
-    // 2. Semantic search — only run if every word is >= 3 chars (skip partials)
     const words = query.trim().split(/\s+/);
     const shouldRunSemantic = words.every((w) => w.length >= 3);
 
     let semanticScoreMap = new Map<string, number>();
 
+    let isSemanticOk = false;
     if (shouldRunSemantic) {
-      const queryEmbedding = await getEmbedding(query);
+      try {
+        const queryEmbedding = await getEmbedding(query, customApiKey);
 
-      const contentsWithEmbeddings = await Content.find({ userId })
-        .select("+embedding")
-        .populate("tags", "name")
-        .populate("userId", "username");
+        const contentsWithEmbeddings = await Content.find({ userId })
+          .select("+embedding")
+          .populate("tags", "name")
+          .populate("userId", "username");
 
-      contentsWithEmbeddings.forEach((item: any) => {
-        if (item.embedding && item.embedding.length > 0) {
-          const score = cosineSimilarity(queryEmbedding, item.embedding);
-          if (score > 0.6) {
-            semanticScoreMap.set(item._id.toString(), score);
+        contentsWithEmbeddings.forEach((item: any) => {
+          if (item.embedding && item.embedding.length > 0) {
+            const score = cosineSimilarity(queryEmbedding, item.embedding);
+            if (score > 0.6) {
+              semanticScoreMap.set(item._id.toString(), score);
+            }
           }
-        }
-      });
+        });
+        isSemanticOk = true;
+      } catch (semErr: any) {
+        console.error("⚠️ Semantic search failed, falling back to text-only search:", semErr?.message || semErr);
+      }
     }
 
-    // 3. Merge: build a scored map, deduplicating by _id
-    //    Semantic score wins if present; text-only matches get score 0.8
     const mergedMap = new Map<string, any>();
 
-    // Add semantic matches first
-    if (shouldRunSemantic) {
+    if (isSemanticOk) {
       const contentsForMerge = await Content.find({ userId })
         .populate("tags", "name")
         .populate("userId", "username");
@@ -74,7 +87,6 @@ searchRouter.get("/search", async (req: AuthRequest, res) => {
       });
     }
 
-    // Add text matches not already in semantic results (score = 0.8)
     textMatchDocs.forEach((item: any) => {
       const id = item._id.toString();
       if (!mergedMap.has(id)) {
@@ -84,7 +96,6 @@ searchRouter.get("/search", async (req: AuthRequest, res) => {
       }
     });
 
-    // 4. Sort by score descending, return top 5
     const results = Array.from(mergedMap.values())
       .sort((a, b) => b.score - a.score)
       .slice(0, 5);

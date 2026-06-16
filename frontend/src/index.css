@@ -332,7 +332,16 @@ select:focus {
 .prose-message li { margin-bottom: 4px; }
 .prose-message strong { font-weight: 600; }
 .prose-message em { font-style: italic; }
-.prose-message code { font-family: monospace; background: rgba(0,0,0,0.06); padding: 1px 5px; border-radius: 4px; font-size: 0.85em; }
+.prose-message code {
+  font-family: inherit;
+  background: rgba(240, 169, 120, 0.14);
+  color: #b25e2b;
+  border: 1px solid rgba(240, 169, 120, 0.22);
+  padding: 2px 6px;
+  border-radius: 6px;
+  font-size: 0.88em;
+  font-weight: 500;
+}
 .prose-message a { color: #2563eb; text-decoration: underline; }
 
 /* Hide scrollbars but retain functionality */

@@ -144,25 +144,27 @@ const ContentPage = ({ activeFilter }: ContentPageProps) => {
   return (
     <div className="page-enter">
       <section className="mb-5 rounded-[24px] border border-[rgba(125,105,86,0.16)] bg-white/75 p-5 shadow-[0_18px_45px_rgba(99,73,48,0.08)] backdrop-blur-[18px]">
-        <div className="flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
-          <div>
+        <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+          <div className="flex items-center justify-between md:flex-col md:items-start w-full md:w-auto">
             <h2 className="text-3xl font-semibold text-slate-900 md:text-4xl">{FILTER_LABELS[activeFilter]}</h2>
             {!isLoading ? (
-              <p className="mt-1 text-sm text-slate-500">
+              <p className="text-sm text-slate-500 md:mt-1">
                 {displayedContents.length} item{displayedContents.length !== 1 ? "s" : ""} in this view
               </p>
             ) : null}
           </div>
 
-          <div className="flex flex-col gap-3 lg:min-w-[520px] lg:flex-row lg:items-center lg:justify-end">
-            <SearchBar onSearch={setSearchResults} onSearchStateChange={setIsSearching} />
-            <div className="flex items-center gap-2 flex-wrap justify-end">
-              <button className="bento-button bento-button-secondary" onClick={() => setIsShareModalOpen(true)}>
-                <Share2 className="h-4 w-4" />
+          <div className="flex flex-col gap-3 md:flex-row md:items-center md:flex-1 md:justify-end w-full md:max-w-2xl">
+            <div className="w-full">
+              <SearchBar onSearch={setSearchResults} onSearchStateChange={setIsSearching} />
+            </div>
+            <div className="flex items-center gap-2 w-full md:w-auto flex-shrink-0">
+              <button className="flex-1 md:flex-initial bento-button bento-button-secondary py-2 px-3 text-xs md:text-sm whitespace-nowrap flex-shrink-0" onClick={() => setIsShareModalOpen(true)}>
+                <Share2 className="h-4 w-4 flex-shrink-0" />
                 Share Brain
               </button>
-              <button className="bento-button bento-button-primary" onClick={() => setIsModalOpen(true)}>
-                <Plus className="h-4 w-4" />
+              <button className="flex-1 md:flex-initial bento-button bento-button-primary py-2 px-3 text-xs md:text-sm whitespace-nowrap flex-shrink-0" onClick={() => setIsModalOpen(true)}>
+                <Plus className="h-4 w-4 flex-shrink-0" />
                 Add Content
               </button>
             </div>

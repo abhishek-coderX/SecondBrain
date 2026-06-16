@@ -12,6 +12,7 @@ import searchRouter from './routes/search'
 import askRouter from './routes/ask'
 import twitterRouter from './routes/twitter'
 import sessionRouter from './routes/sessions'
+import settingsRouter from './routes/settings'
 dotenv.config()
 
 const app=express()
@@ -52,6 +53,7 @@ app.use('/', searchRouter)
 app.use('/', askRouter)
 app.use('/', twitterRouter)
 app.use('/', sessionRouter)
+app.use('/', settingsRouter)
 
 
 connectToDb().then(()=>{

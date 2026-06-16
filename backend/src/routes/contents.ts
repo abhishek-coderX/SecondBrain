@@ -4,7 +4,9 @@ import { validate } from "../middlewares/validate";
 import { createContentSchema, updateContentSchema } from "../utils/zodSchema";
 import Content from "../model/content";
 import Tag from '../model/tag';
+import User from "../model/user";
 import { getEmbedding, buildEmbeddingText } from "../utils/embeddings";
+import { decrypt } from "../utils/crypto";
 import ogs from "open-graph-scraper";
 
 const contentRouter = Router();
@@ -46,14 +48,25 @@ contentRouter.post(
       res.status(201).json(populatedContent);
 
       // Generate embedding in background (don't block response)
-      try {
-        const embeddingText = buildEmbeddingText({ title, description, link, type });
-        const embedding = await getEmbedding(embeddingText);
-        await Content.findByIdAndUpdate(savedContent._id, { embedding });
-        console.log(`🧠 Embedding generated for: "${title}"`);
-      } catch (embErr) {
-        console.error(`⚠️ Failed to generate embedding for: "${title}"`, embErr);
-      }
+      (async () => {
+        try {
+          const user = await User.findById(userId);
+          let customApiKey: string | undefined;
+          if (user?.geminiApiKey) {
+            try {
+              customApiKey = decrypt(user.geminiApiKey);
+            } catch (err) {
+              console.error("Failed to decrypt user API key, using server default key:", err);
+            }
+          }
+          const embeddingText = buildEmbeddingText({ title, description, link, type });
+          const embedding = await getEmbedding(embeddingText, customApiKey);
+          await Content.findByIdAndUpdate(savedContent._id, { embedding });
+          console.log(`🧠 Embedding generated for: "${title}"`);
+        } catch (embErr) {
+          console.error(`⚠️ Failed to generate embedding for: "${title}"`, embErr);
+        }
+      })();
 
       // Scrape OG thumbnail in background — only for articles with a link
       if (type === "article" && link) {
@@ -133,20 +146,31 @@ contentRouter.put("/content/:id", validate(updateContentSchema), async (req: Aut
     // Regenerate embedding in background if semantic fields changed
     const { title, description, link, type } = req.body;
     if (title || description || link || type) {
-      try {
-        const current = updatedContent as any;
-        const embeddingText = buildEmbeddingText({
-          title: current.title,
-          description: current.description,
-          link: current.link,
-          type: current.type,
-        });
-        const embedding = await getEmbedding(embeddingText);
-        await Content.findByIdAndUpdate(contentId, { embedding });
-        console.log(`Embedding regenerated for: "${current.title}"`);
-      } catch (embErr) {
-        console.error(`Failed to regenerate embedding`, embErr);
-      }
+      (async () => {
+        try {
+          const user = await User.findById(userId);
+          let customApiKey: string | undefined;
+          if (user?.geminiApiKey) {
+            try {
+              customApiKey = decrypt(user.geminiApiKey);
+            } catch (err) {
+              console.error("Failed to decrypt user API key, using server default key:", err);
+            }
+          }
+          const current = updatedContent as any;
+          const embeddingText = buildEmbeddingText({
+            title: current.title,
+            description: current.description,
+            link: current.link,
+            type: current.type,
+          });
+          const embedding = await getEmbedding(embeddingText, customApiKey);
+          await Content.findByIdAndUpdate(contentId, { embedding });
+          console.log(`Embedding regenerated for: "${current.title}"`);
+        } catch (embErr) {
+          console.error(`Failed to regenerate embedding`, embErr);
+        }
+      })();
     }
   } catch (error) {
     console.error("Error updating content:", error);

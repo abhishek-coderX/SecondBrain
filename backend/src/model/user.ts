@@ -14,6 +14,10 @@ const userSchema = new mongoose.Schema(
       required: true,
       select:false,
     },
+    geminiApiKey: {
+      type: String,
+      required: false,
+    },
   },
 
   {

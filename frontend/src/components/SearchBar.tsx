@@ -46,7 +46,7 @@ export const SearchBar = ({ onSearch, onSearchStateChange }: SearchBarProps) => 
         type="text"
         value={query}
         onChange={(e) => setQuery(e.target.value)}
-        placeholder="Semantic search, like 'cache strategy'..."
+        placeholder="Semantic search..."
         className="bento-input pl-4 pr-11"
       />
 
