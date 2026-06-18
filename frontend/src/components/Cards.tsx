@@ -630,13 +630,15 @@ export const Cards = ({ onDelete, onUpdate, ...props }: CardsProps) => {
 
           <div className="flex items-center gap-1">
             {/* Edit */}
-            <button
-              onClick={() => setShowEditModal(true)}
-              className="flex h-9 w-9 items-center justify-center rounded-full text-slate-500 hover:bg-black/5 hover:text-slate-900"
-              title="Edit"
-            >
-              <Pencil className="h-4 w-4" />
-            </button>
+            {onUpdate ? (
+              <button
+                onClick={() => setShowEditModal(true)}
+                className="flex h-9 w-9 items-center justify-center rounded-full text-slate-500 hover:bg-black/5 hover:text-slate-900"
+                title="Edit"
+              >
+                <Pencil className="h-4 w-4" />
+              </button>
+            ) : null}
 
             {/* Open original */}
             {link ? (

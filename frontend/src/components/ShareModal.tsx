@@ -87,112 +87,132 @@ export const ShareModal: React.FC<ShareModalProps> = ({ open, onClose, contents 
 
   return createPortal(
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/35 p-4 backdrop-blur-sm" onClick={handleClose}>
-      <div className="bento-card flex w-full max-w-3xl flex-col overflow-hidden" style={{ maxHeight: '85vh' }} onClick={(e) => e.stopPropagation()}>
-        {/* Header — always visible */}
-        <div className="flex flex-shrink-0 items-center justify-between border-b border-[rgba(125,105,86,0.14)] px-6 py-5">
-          <div>
-            <p className="bento-heading text-3xl text-slate-900">Share your brain</p>
-            <p className="mt-1 text-sm text-slate-500">{selectedContents.length} item{selectedContents.length !== 1 ? "s" : ""} selected</p>
-          </div>
-          <button className="flex h-10 w-10 items-center justify-center rounded-full bg-black/5 text-slate-600" onClick={handleClose}>
-            <X className="h-4 w-4" />
-          </button>
-        </div>
-
-        {/* Scrollable content list */}
-        <div className="flex-1 overflow-y-auto p-6">
-          <div className="flex flex-wrap gap-2">
-            {filterPills.map(({ value, label }) => {
-              const active = filterType === value;
-              return (
-                <button
-                  key={value}
-                  onClick={() => setFilterType(value)}
-                  className={`rounded-full px-4 py-2 text-sm font-medium ${active ? "bg-slate-900 text-white" : "border border-[rgba(125,105,86,0.14)] bg-white/70 text-slate-600"}`}
-                >
-                  {label}
-                </button>
-              );
-            })}
-          </div>
-
-          <div className="mt-5 flex items-center justify-between rounded-[20px] bg-[rgba(128,161,193,0.08)] px-4 py-3">
-            <p className="text-sm text-slate-600">{visibleContents.length} visible in this category</p>
-            <button onClick={handleSelectAll} className="text-sm font-semibold text-slate-900">
-              {allVisibleSelected ? "Deselect All" : "Select All"}
+      {generatedLink ? (
+        <div className="bento-card flex w-full max-w-md flex-col overflow-hidden p-6" onClick={(e) => e.stopPropagation()}>
+          {/* Header */}
+          <div className="flex items-center justify-between border-b border-[rgba(125,105,86,0.14)] pb-4">
+            <div>
+              <p className="bento-heading text-2xl text-slate-900">Share Link Generated</p>
+              <p className="mt-1 text-xs text-slate-500">Your brain is ready to be shared!</p>
+            </div>
+            <button className="flex h-8 w-8 items-center justify-center rounded-full bg-black/5 text-slate-600 hover:bg-black/10 transition-colors" onClick={handleClose}>
+              <X className="h-4 w-4" />
             </button>
           </div>
 
-          <div className="mt-5 grid gap-3">
-            {visibleContents.length === 0 ? (
-              <div className="rounded-[22px] border border-[rgba(125,105,86,0.14)] bg-white/65 p-8 text-center text-sm text-slate-500">
-                Nothing in this category yet.
+          {/* Success Link Box */}
+          <div className="mt-5 rounded-[22px] bg-slate-900 p-4 text-white">
+            <p className="text-xs uppercase tracking-[0.22em] text-slate-300">Share link</p>
+            <div className="mt-3 flex flex-col gap-2">
+              <div className="flex min-w-0 items-center gap-3 rounded-[18px] bg-white/10 px-4 py-3 text-sm text-slate-100">
+                <Link2 className="h-4 w-4 flex-shrink-0 text-orange-200" />
+                <span className="truncate">{generatedLink}</span>
               </div>
-            ) : (
-              visibleContents.map((content) => {
-                const isChecked = selectedContents.includes(content._id);
-                return (
-                  <label
-                    key={content._id}
-                    className={`flex cursor-pointer items-center gap-4 rounded-[22px] border px-4 py-4 ${
-                      isChecked
-                        ? "border-[rgba(223,133,82,0.24)] bg-[rgba(240,169,120,0.12)]"
-                        : "border-[rgba(125,105,86,0.14)] bg-white/70"
-                    }`}
-                  >
-                    <input type="checkbox" checked={isChecked} onChange={() => handleToggle(content._id)} className="h-4 w-4" style={{ accentColor: "#df8552" }} />
-                    <div className="min-w-0 flex-1">
-                      <p className="truncate text-sm font-semibold text-slate-900">{content.title}</p>
-                      <p className="mt-1 text-xs uppercase tracking-[0.18em] text-slate-500">{content.type}</p>
-                    </div>
-                    {isChecked ? <Check className="h-4 w-4 text-[#c66d36]" /> : null}
-                  </label>
-                );
-              })
-            )}
-          </div>
-
-          {generatedLink ? (
-            <div className="mt-5 rounded-[22px] bg-slate-900 p-4 text-white">
-              <p className="text-xs uppercase tracking-[0.22em] text-slate-300">Share link</p>
-              <div className="mt-3 flex flex-col gap-3 sm:flex-row">
-                <div className="flex min-w-0 flex-1 items-center gap-3 rounded-[18px] bg-white/10 px-4 py-3 text-sm text-slate-100">
-                  <Link2 className="h-4 w-4 flex-shrink-0 text-orange-200" />
-                  <span className="truncate">{generatedLink}</span>
-                </div>
-                <button onClick={handleCopy} className="rounded-[18px] bg-white px-4 py-3 text-sm font-semibold text-slate-900">
+              
+              <div className="flex gap-2 mt-2">
+                <button onClick={handleCopy} className="flex-1 rounded-[18px] bg-white px-4 py-2.5 text-sm font-semibold text-slate-900 hover:bg-slate-100 transition-colors flex items-center justify-center gap-2">
                   {copied ? (
-                    <span className="inline-flex items-center gap-2">
-                      <Check className="h-4 w-4" />
+                    <>
+                      <Check className="h-4 w-4 text-emerald-600" />
                       Copied
-                    </span>
+                    </>
                   ) : (
-                    <span className="inline-flex items-center gap-2">
+                    <>
                       <Copy className="h-4 w-4" />
-                      Copy
-                    </span>
+                      Copy Link
+                    </>
                   )}
+                </button>
+                <button onClick={() => setGeneratedLink("")} className="flex-1 rounded-[18px] bg-white/15 px-4 py-2.5 text-sm font-semibold text-white hover:bg-white/25 transition-colors flex items-center justify-center gap-2">
+                  Edit Items
                 </button>
               </div>
             </div>
-          ) : null}
+          </div>
         </div>
+      ) : (
+        <div className="bento-card flex w-full max-w-xl flex-col overflow-hidden" style={{ maxHeight: '85vh' }} onClick={(e) => e.stopPropagation()}>
+          {/* Header — always visible */}
+          <div className="flex flex-shrink-0 items-center justify-between border-b border-[rgba(125,105,86,0.14)] px-6 py-5">
+            <div>
+              <p className="bento-heading text-2xl text-slate-900">Share your brain</p>
+              <p className="mt-1 text-sm text-slate-500">{selectedContents.length} item{selectedContents.length !== 1 ? "s" : ""} selected</p>
+            </div>
+            <button className="flex h-10 w-10 items-center justify-center rounded-full bg-black/5 text-slate-600" onClick={handleClose}>
+              <X className="h-4 w-4" />
+            </button>
+          </div>
 
-        {/* Footer — always visible */}
-        <div className="flex flex-shrink-0 flex-col gap-3 border-t border-[rgba(125,105,86,0.14)] px-6 py-5 sm:flex-row">
-          <button onClick={handleClose} className="bento-button bento-button-secondary flex-1">
-            Close
-          </button>
-          <button
-            onClick={handleGenerateLink}
-            disabled={selectedContents.length === 0 || isGenerating}
-            className="bento-button bento-button-primary flex-1"
-          >
-            <Send className="h-4 w-4" />
-            {isGenerating ? "Generating..." : generatedLink ? "Regenerate Link" : `Generate Share Link${selectedContents.length > 0 ? ` (${selectedContents.length})` : ""}`}
-          </button>
+          {/* Scrollable content list */}
+          <div className="flex-1 overflow-y-auto p-6">
+            <div className="flex flex-wrap gap-2">
+              {filterPills.map(({ value, label }) => {
+                const active = filterType === value;
+                return (
+                  <button
+                    key={value}
+                    onClick={() => setFilterType(value)}
+                    className={`rounded-full px-4 py-2 text-sm font-medium ${active ? "bg-slate-900 text-white" : "border border-[rgba(125,105,86,0.14)] bg-white/70 text-slate-600"}`}
+                  >
+                    {label}
+                  </button>
+                );
+              })}
+            </div>
+
+            <div className="mt-5 flex items-center justify-between rounded-[20px] bg-[rgba(128,161,193,0.08)] px-4 py-3">
+              <p className="text-sm text-slate-600">{visibleContents.length} visible in this category</p>
+              <button onClick={handleSelectAll} className="text-sm font-semibold text-slate-900">
+                {allVisibleSelected ? "Deselect All" : "Select All"}
+              </button>
+            </div>
+
+            <div className="mt-5 grid gap-3">
+              {visibleContents.length === 0 ? (
+                <div className="rounded-[22px] border border-[rgba(125,105,86,0.14)] bg-white/65 p-8 text-center text-sm text-slate-500">
+                  Nothing in this category yet.
+                </div>
+              ) : (
+                visibleContents.map((content) => {
+                  const isChecked = selectedContents.includes(content._id);
+                  return (
+                    <label
+                      key={content._id}
+                      className={`flex cursor-pointer items-center gap-4 rounded-[22px] border px-4 py-4 ${
+                        isChecked
+                          ? "border-[rgba(223,133,82,0.24)] bg-[rgba(240,169,120,0.12)]"
+                          : "border-[rgba(125,105,86,0.14)] bg-white/70"
+                      }`}
+                    >
+                      <input type="checkbox" checked={isChecked} onChange={() => handleToggle(content._id)} className="h-4 w-4" style={{ accentColor: "#df8552" }} />
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-sm font-semibold text-slate-900">{content.title}</p>
+                        <p className="mt-1 text-sm uppercase tracking-[0.18em] text-slate-500">{content.type}</p>
+                      </div>
+                      {isChecked ? <Check className="h-4 w-4 text-[#c66d36]" /> : null}
+                    </label>
+                  );
+                })
+              )}
+            </div>
+          </div>
+
+          {/* Footer — always visible */}
+          <div className="flex flex-shrink-0 flex-col gap-3 border-t border-[rgba(125,105,86,0.14)] px-6 py-5 sm:flex-row">
+            <button onClick={handleClose} className="bento-button bento-button-secondary flex-1">
+              Close
+            </button>
+            <button
+              onClick={handleGenerateLink}
+              disabled={selectedContents.length === 0 || isGenerating}
+              className="bento-button bento-button-primary flex-1"
+            >
+              <Send className="h-4 w-4" />
+              {isGenerating ? "Generating..." : `Generate Share Link${selectedContents.length > 0 ? ` (${selectedContents.length})` : ""}`}
+            </button>
+          </div>
         </div>
-      </div>
+      )}
     </div>,
     document.body
   );
