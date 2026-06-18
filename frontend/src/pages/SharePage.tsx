@@ -2,7 +2,6 @@ import { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import api from '../utils/api';
 import { Cards } from '../components/Cards';
-import { Logo } from '../components/icons/Logo';
 import type { Content } from '../types/type';
 import Masonry from 'react-masonry-css';
 
